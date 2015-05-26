@@ -87,10 +87,10 @@ function onShipRemoved(data, buffer)
 function onShipAdded(data)
 {
 	var boid = createShip(data.id);
-	boid.interpData.push({
+	boid.pushInterpolationInfo({
 		time: clock.getElapsedTime(),
 		position: new THREE.Vector3(data.x, data.y, 0),
-		quaternion: new THREE.Quaternion()
+		orientation: (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), data.rot)
 	});
 	boid.rot = data.rot;
 }
@@ -108,7 +108,7 @@ function onResize(event) {
 window.onresize = onResize;
 window.onload = onResize;
 
-var config = Stormancer.Configuration.forAccount("d81fc876-6094-3d92-a3d0-86d42d866b96", "boids-demo");
+var config = Stormancer.Configuration.forAccount("997bc6ac-9021-2ad6-139b-da63edee8c58", "boids-demo");
 var client = $.stormancer(config);
 var scene = null;
 client.getPublicScene("main-session", "{ isObserver:true }").then(function(sc) {
@@ -141,11 +141,11 @@ function render()
 		boid.update(delta);
 		var x = boid.root.position.x;
 		var y = boid.root.position.y;
-		var rot = (new THREE.Euler()).setFromQuaternion(boid.root.quaternion).y;
+		var rot = (new THREE.Euler()).setFromQuaternion(boid.root.quaternion, 'YZX').y;
 		placeBoid(x, y, rot);
 	}
 }
-
+/*
 createShip(0);
 updateShip(0, 0, 0, 0);
 boids[0].interpData[0].time = clock.getElapsedTime() - 0.2;
@@ -153,5 +153,5 @@ updateShip(0, 10, 0, Math.PI / 4);
 boids[0].interpData[1].time = clock.getElapsedTime() - 0.1;
 updateShip(0, 10, 10, Math.PI / 2);
 boids[0].interpData[1].time = clock.getElapsedTime();
-
+*/
 requestRender();

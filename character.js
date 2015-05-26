@@ -16,7 +16,7 @@ function Character(id, clock)
 
 Character.prototype.update = function(delta)
 {
-	this.updateInterp2(delta);
+	this.updateInterp(delta);
 };
 
 Character.prototype.updateNoInterp = function(delta)
@@ -28,44 +28,39 @@ Character.prototype.updateNoInterp = function(delta)
 
 Character.prototype.updateInterp = function(delta)
 {
-	if (this.interpData.length == 1)
+	if (this.interpData.length < 2)
 	{
-		// when only 1 info, set this info
-		var data = this.interpData[0];
-		this.root.position.copy(data.position);
-		this.root.quaternion.copy(data.orientation);
+		return;
 	}
-	else if (this.interpData.length > 1)
+
+	// when more than 1 info, interp
+	var i0 = this.interpData[0];
+	var i1 = this.interpData[1];
+
+	// time	
+	var elapsedTime = ((new Date()) - i1.time) / 1000;
+	var maxTime = (i1.time - i0.time) / 1000;
+	var factor = elapsedTime / maxTime;
+
+	// position
+	var dir = i1.position.clone().sub(i0.position);
+	dir.multiplyScalar(factor);
+	this.root.position.copy(i0.position).add(dir);
+
+	// orientation
+	if (factor < 1)
 	{
-		// when more than 1 info, interp
-		var i0 = this.interpData[0];
-		var i1 = this.interpData[1];
+		THREE.Quaternion.slerp(i0.orientation, i1.orientation, this.root.quaternion, factor);
+	}
+	else
+	{
+		this.root.quaternion.copy(i1.orientation);
+	}
 
-		// time	
-		var elapsedTime = ((new Date()) - i1.date) / 1000;
-		var maxTime = (i1.date - i0.date) / 1000;
-		var factor = elapsedTime / maxTime;
-
-		// position
-		var dir = i1.position.clone().sub(i0.position);
-		dir.multiplyScalar(factor);
-		this.root.position.copy(i0.position).add(dir);
-
-		// orientation
-		if (factor < 1)
-		{
-			THREE.Quaternion.slerp(i0.orientation, i1.orientation, this.root.quaternion, factor);
-		}
-		else
-		{
-			this.root.quaternion.copy(i1.orientation);
-		}
-
-		// clean
-		if (elapsedTime >= maxTime)
-		{
-			this.interpData.shift();
-		}
+	// clean
+	if (elapsedTime >= maxTime)
+	{
+		this.interpData.shift();
 	}
 }
 
