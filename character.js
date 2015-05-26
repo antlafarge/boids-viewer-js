@@ -8,15 +8,18 @@ function Character(id, clock)
 	this.clock = clock;
 
     this.interpData = [];
-    this.delay = 0.2;
-    this.ex_interp = 0.1;
+
+    this.ex = false;
 
     this.moveOffset = new THREE.Vector3();
 }
 
+Character.delay = 0.2;
+Character.ex_interp = 0.2;
+
 Character.prototype.update = function(delta)
 {
-	this.updateInterp(delta);
+	this.updateInterp2(delta);
 };
 
 Character.prototype.updateNoInterp = function(delta)
@@ -38,9 +41,15 @@ Character.prototype.updateInterp = function(delta)
 	var i1 = this.interpData[1];
 
 	// time	
-	var elapsedTime = ((new Date()) - i1.time) / 1000;
 	var maxTime = (i1.time - i0.time) / 1000;
-	var factor = elapsedTime / maxTime;
+	var elapsedTime = Math.min((this.clock.getElapsedTime() - i1.time) / 1000, maxTime + Character.delay);
+	var factor = Math.max(elapsedTime / maxTime, 0);
+
+	this.ex = false;
+	if (factor > 1)
+	{
+		this.ex = true;
+	}
 
 	// position
 	var dir = i1.position.clone().sub(i0.position);
@@ -48,14 +57,7 @@ Character.prototype.updateInterp = function(delta)
 	this.root.position.copy(i0.position).add(dir);
 
 	// orientation
-	if (factor < 1)
-	{
-		THREE.Quaternion.slerp(i0.orientation, i1.orientation, this.root.quaternion, factor);
-	}
-	else
-	{
-		this.root.quaternion.copy(i1.orientation);
-	}
+	THREE.Quaternion.slerp(i0.orientation, i1.orientation, this.root.quaternion, factor);
 
 	// clean
 	if (elapsedTime >= maxTime)
@@ -75,28 +77,36 @@ Character.prototype.updateInterp2 = function(delta)
 		this.interpData.shift();
 	}
 
-	// INTERP
 	if (this.interpData.length < 2)
 	{
 		return;
 	}
 
-	var targetTime = time - this.delay;
+	var targetTime = time - Character.delay;
 	var i0, i1;
 	var i = this.interpData.length - 1;
 	while (i--)
 	{
 		i0 = this.interpData[i];
 		i1 = this.interpData[i + 1];
-		if (targetTime >= i0 && targetTime <= i1.time)
+		if (targetTime >= i0.time)
 		{
 			break;
 		}
 	}
 
 	var timeTotal = (i1.time - i0.time);
-	var timePassed = Math.min(targetTime - i0.time, timeTotal + this.ex_interp);
+	var timePassed = Math.min(targetTime - i0.time, timeTotal + Character.ex_interp);
 	var factor = Math.max(timePassed / timeTotal, 0);
+
+	if (factor > 1)
+	{
+		this.ex = true;
+	}
+	else
+	{
+		this.ex = false;
+	}
 
 	this.moveOffset.subVectors(i1.position, i0.position);
 	this.moveOffset.multiplyScalar(factor);

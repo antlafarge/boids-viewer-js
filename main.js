@@ -21,22 +21,29 @@ function drawOrigin()
 	ctx.stroke();
 }
 
-function placeBoid(x, y, rot)
+function placeBoid(x, y, rot, ex)
 {
 	ctx.save();
 	ctx.translate(width / 2 + x, height / 2 + y);
 	ctx.rotate(rot);
-	drawBoid();
+	drawBoid(ex);
 	ctx.restore();
 }
 
-function drawBoid()
+function drawBoid(ex)
 {
 	ctx.beginPath();
 	ctx.moveTo(-6, -4);
 	ctx.lineTo(-6, +4);
 	ctx.lineTo(+6, +0);
-	ctx.fillStyle = "#DDDDDD";
+	if (ex)
+	{
+		ctx.fillStyle = "#FF0000";
+	}
+	else
+	{
+		ctx.fillStyle = "#DDDDDD";
+	}
 	ctx.fill();
 }
 
@@ -51,17 +58,24 @@ function updateShip(id, x, y, rot)
 {
 	var boid = boids[id];
 	boid.pushInterpolationInfo({
-		time: clock.getElapsedTime(),
+		time: nextTime,
 		position: new THREE.Vector3(x, y, 0),
 		orientation: (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), rot)
 	});
 	boid.rot = rot;
 }
 
+var t = 0;
+var lt = 0;
+var averageDelta = 0.2;
+var nextTime = 0;
+
 function onShipUpdate(data, buffer)
 {
+
 	var dataView = new DataView(buffer);
 	var i = 3;
+	var nb = 0;
 	while (i < buffer.byteLength)
 	{
 		var id = dataView.getUint16(i+0, true);
@@ -74,14 +88,21 @@ function onShipUpdate(data, buffer)
 		var rot = dataView.getFloat32(i+10, true);
 		updateShip(id, x, y, rot);
 		i += 14;
+		nb++;
 	}
+	//console.log("nbChipsUpdated\t"+nb);
+
+	lt = t;
+	t = clock.getElapsedTime();
+	var delta = (t - lt);
+	averageDelta += (delta - averageDelta) * 0.2;
+	//console.log("time\t"+t + "\t\t" + delta);
+	nextTime = t + averageDelta;
 }
 
-function onShipRemoved(data, buffer)
+function onShipRemoved(data)
 {
-	var dataView = new DataView(buffer);
-	var id = dataView.getUint16(0, true);
-	delete boids[id];
+	delete boids[data];
 }
 
 function onShipAdded(data)
@@ -135,14 +156,15 @@ function render()
 	var delta = clock.getElapsedTime();
 	clearCanvas();
 	drawOrigin();
+	var euler = new THREE.Euler();
 	for (var id in boids)
 	{
 		var boid = boids[id];
 		boid.update(delta);
 		var x = boid.root.position.x;
 		var y = boid.root.position.y;
-		var rot = (new THREE.Euler()).setFromQuaternion(boid.root.quaternion, 'YZX').y;
-		placeBoid(x, y, rot);
+		var rot = euler.setFromQuaternion(boid.root.quaternion, 'YZX').y;
+		placeBoid(x, y, rot, boid.ex);
 	}
 }
 /*
