@@ -1,30 +1,40 @@
 function clearCanvas()
 {
-	ctx.fillStyle = "#222222";
+	ctx.fillStyle = "#000022";
 	ctx.fillRect(0, 0, width, height);
 }
 
 function drawOrigin()
 {
-	size = 10;
+	var originSize = 8;
 
 	ctx.beginPath();
-	ctx.moveTo(width / 2 - size, height / 2);
-	ctx.lineTo(width / 2 + size, height / 2);
-	ctx.strokeStyle = "#FF0000";
+	ctx.moveTo(width / 2 - originSize, height / 2);
+	ctx.lineTo(width / 2 + originSize, height / 2);
+	ctx.strokeStyle = "#777777";
 	ctx.stroke();
 
 	ctx.beginPath();
-	ctx.moveTo(width / 2, height / 2 - size);
-	ctx.lineTo(width / 2, height / 2 + size);
-	ctx.strokeStyle = "#FF0000";
+	ctx.moveTo(width / 2, height / 2 - originSize);
+	ctx.lineTo(width / 2, height / 2 + originSize);
+	ctx.strokeStyle = "#777777";
 	ctx.stroke();
+}
+
+function drawPoints(boid)
+{
+	var dotSize = 2;
+	for (var i in boid.interpData)
+	{
+		ctx.fillStyle = "#FFFFFF";
+		ctx.fillRect(computeX(boid.interpData[i].position.x), computeY(boid.interpData[i].position.y), dotSize, dotSize);
+	}
 }
 
 function placeBoid(x, y, rot, ex)
 {
 	ctx.save();
-	ctx.translate(width / 2 + x, height / 2 + y);
+	ctx.translate(computeX(x), computeY(y));
 	ctx.rotate(rot);
 	drawBoid(ex);
 	ctx.restore();
@@ -42,7 +52,7 @@ function drawBoid(ex)
 	}
 	else
 	{
-		ctx.fillStyle = "#DDDDDD";
+		ctx.fillStyle = "#EEEEEE";
 	}
 	ctx.fill();
 }
@@ -62,7 +72,6 @@ function updateShip(id, x, y, rot)
 		position: new THREE.Vector3(x, y, 0),
 		orientation: (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), rot)
 	});
-	boid.rot = rot;
 }
 
 var t = 0;
@@ -72,7 +81,6 @@ var nextTime = 0;
 
 function onShipUpdate(data, buffer)
 {
-
 	var dataView = new DataView(buffer);
 	var i = 3;
 	var nb = 0;
@@ -90,14 +98,14 @@ function onShipUpdate(data, buffer)
 		i += 14;
 		nb++;
 	}
-	//console.log("nbChipsUpdated\t"+nb);
+//console.log("nbChipsUpdated\t"+nb);
 
 	lt = t;
 	t = clock.getElapsedTime();
 	var delta = (t - lt);
 	averageDelta += (delta - averageDelta) * 0.2;
-	//console.log("time\t"+t + "\t\t" + delta);
-	nextTime = t + averageDelta;
+console.log("time\t"+t + "\t\t" + delta);
+	nextTime = t + 0.2;//averageDelta;
 }
 
 function onShipRemoved(data)
@@ -107,32 +115,42 @@ function onShipRemoved(data)
 
 function onShipAdded(data)
 {
-	var boid = createShip(data.id);
+	var id = data[0];
+	var x = data[1];
+	var y = data[2];
+	var rot = data[3];
+
+	var boid = createShip(id);
 	boid.pushInterpolationInfo({
 		time: clock.getElapsedTime(),
-		position: new THREE.Vector3(data.x, data.y, 0),
-		orientation: (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), data.rot)
+		position: new THREE.Vector3(x, y, 0),
+		orientation: (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), rot)
 	});
-	boid.rot = data.rot;
 }
 
 var canvas = document.querySelector("canvas");
-var width = canvas.width = canvas.offsetWidth;
-var height = canvas.height = canvas.offsetHeight;
+canvas.width = canvas.offsetWidth;
+canvas.height = canvas.offsetHeight;
+var width = canvas.offsetWidth;
+var height = canvas.offsetHeight;
 var ctx = canvas.getContext('2d');
 var clock = new THREE.Clock();
+var worldZoom = 3;
 
 function onResize(event) {
-	width = canvas.width = canvas.offsetWidth;
-	heihght = canvas.height = canvas.offsetHeight;
+	canvas.width = canvas.offsetWidth;
+	canvas.height = canvas.offsetHeight;
+	width = canvas.offsetWidth;
+	height = canvas.offsetHeight;
 };
 window.onresize = onResize;
 window.onload = onResize;
+onResize();
 
-var config = Stormancer.Configuration.forAccount("997bc6ac-9021-2ad6-139b-da63edee8c58", "boids-demo");
+var config = Stormancer.Configuration.forAccount("997bc6ac-9021-2ad6-139b-da63edee8c58", "boids");
 var client = $.stormancer(config);
 var scene = null;
-client.getPublicScene("main-session", "{ isObserver:true }").then(function(sc) {
+client.getPublicScene("main", "{ isObserver:true }").then(function(sc) {
     scene = sc;
     scene.registerRoute("position.update", onShipUpdate);
     scene.registerRoute("ship.remove", onShipRemoved);
@@ -165,15 +183,18 @@ function render()
 		var y = boid.root.position.y;
 		var rot = euler.setFromQuaternion(boid.root.quaternion, 'YZX').y;
 		placeBoid(x, y, rot, boid.ex);
+		drawPoints(boid);
 	}
 }
-/*
-createShip(0);
-updateShip(0, 0, 0, 0);
-boids[0].interpData[0].time = clock.getElapsedTime() - 0.2;
-updateShip(0, 10, 0, Math.PI / 4);
-boids[0].interpData[1].time = clock.getElapsedTime() - 0.1;
-updateShip(0, 10, 10, Math.PI / 2);
-boids[0].interpData[1].time = clock.getElapsedTime();
-*/
+
+function computeX(x)
+{
+	return width / 2 + worldZoom * x;
+}
+
+function computeY(y)
+{
+	return height / 2 + worldZoom * y;
+}
+
 requestRender();
