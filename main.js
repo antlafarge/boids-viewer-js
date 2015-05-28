@@ -1,3 +1,84 @@
+var netAverageDelta = 0.2;
+var netDataCount = 0;
+var netDeltaClock = new THREE.Clock();
+var estimatedTime = 0;
+var netEpsilon = 0.1;
+
+var canvas = document.querySelector("canvas");
+var width = canvas.offsetWidth;
+var height = canvas.offsetHeight;
+var ctx = canvas.getContext('2d');
+var clock = new THREE.Clock();
+
+var boids = {};
+
+var worldZoom = 3;
+
+window.onresize = onResize;
+window.onload = main;
+
+var config = Stormancer.Configuration.forAccount("997bc6ac-9021-2ad6-139b-da63edee8c58", "boids");
+var client = $.stormancer(config);
+var scene = null;
+client.getPublicScene("main", "{ isObserver:true }").then(function(sc) {
+    scene = sc;
+    scene.registerRoute("position.update", onShipUpdate);
+    scene.registerRoute("ship.remove", onShipRemoved);
+    scene.registerRoute("ship.add", onShipAdded);
+    return scene.connect().then(function() {
+        console.log("CONNECTED");
+    });
+});
+
+function main()
+{
+	onResize();
+	requestRender();
+}
+
+function requestRender()
+{
+	render();
+	window.requestAnimationFrame(requestRender);
+}
+
+function render()
+{
+	var delta = clock.getDelta();
+	var time = clock.getElapsedTime();
+	clearCanvas();
+	drawOrigin();
+	var euler = new THREE.Euler();
+	for (var id in boids)
+	{
+		var boid = boids[id];
+		boid.update(delta, time);
+		var x = boid.root.position.x;
+		var y = boid.root.position.y;
+		var rot = euler.setFromQuaternion(boid.root.quaternion, 'YZX').y;
+		drawPoints(boid);
+		placeBoid(x, y, rot, boid.ex);
+	}
+}
+
+function computeX(x)
+{
+	return width / 2 + worldZoom * x;
+}
+
+function computeY(y)
+{
+	return height / 2 + worldZoom * y;
+}
+
+function onResize(event)
+{
+	canvas.width = canvas.offsetWidth;
+	canvas.height = canvas.offsetHeight;
+	width = canvas.offsetWidth;
+	height = canvas.offsetHeight;
+}
+
 function clearCanvas()
 {
 	ctx.fillStyle = "#000022";
@@ -6,17 +87,17 @@ function clearCanvas()
 
 function drawOrigin()
 {
-	var originSize = 8;
+	var originSize = 4;
 
 	ctx.beginPath();
-	ctx.moveTo(width / 2 - originSize, height / 2);
-	ctx.lineTo(width / 2 + originSize, height / 2);
+	ctx.moveTo(computeX(-originSize), computeY(0));
+	ctx.lineTo(computeX(+originSize), computeY(0));
 	ctx.strokeStyle = "#777777";
 	ctx.stroke();
 
 	ctx.beginPath();
-	ctx.moveTo(width / 2, height / 2 - originSize);
-	ctx.lineTo(width / 2, height / 2 + originSize);
+	ctx.moveTo(computeX(0), computeY(-originSize));
+	ctx.lineTo(computeX(0), computeY(+originSize));
 	ctx.strokeStyle = "#777777";
 	ctx.stroke();
 }
@@ -59,7 +140,7 @@ function drawBoid(ex)
 
 function createShip(id)
 {
-	var boid = new Character(id, clock);
+	var boid = new NetMobile(id);
 	boids[id] = boid;
 	return boid;
 }
@@ -67,24 +148,24 @@ function createShip(id)
 function updateShip(id, x, y, rot)
 {
 	var boid = boids[id];
-	boid.pushInterpolationInfo({
-		time: nextTime,
+	boid.pushInterpData({
+		time: estimatedTime,
 		position: new THREE.Vector3(x, y, 0),
 		orientation: (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), rot)
 	});
 }
 
-var t = 0;
-var lt = 0;
-var averageDelta = 0.2;
-var nextTime = 0;
-
 function onShipUpdate(data, buffer)
 {
-	var dataView = new DataView(buffer);
-	var i = 3;
-	var nb = 0;
-	while (i < buffer.byteLength)
+	var netDelta = netDeltaClock.getDelta();
+	var netTime = clock.getElapsedTime();
+	netDataCount++;
+	netAverageDelta = (netDataCount * netAverageDelta + netDelta) / (netDataCount + 1);
+	estimatedTime = netTime;
+
+	var dataView = new DataView(buffer, 3);
+	var nbShipsUpdated = 0;
+	for (var i = 0; i < dataView.byteLength; i += 14)
 	{
 		var id = dataView.getUint16(i+0, true);
 		if (!boids[id])
@@ -95,17 +176,9 @@ function onShipUpdate(data, buffer)
 		var y = dataView.getFloat32(i+6, true);
 		var rot = dataView.getFloat32(i+10, true);
 		updateShip(id, x, y, rot);
-		i += 14;
-		nb++;
+		nbShipsUpdated++;
 	}
-//console.log("nbChipsUpdated\t"+nb);
-
-	lt = t;
-	t = clock.getElapsedTime();
-	var delta = (t - lt);
-	averageDelta += (delta - averageDelta) * 0.2;
-console.log("time\t"+t + "\t\t" + delta);
-	nextTime = t + 0.2;//averageDelta;
+	console.log("time " + netTime + "\tdelta " + netDelta + "\tnetAverageDelta " + netAverageDelta + "\tshipsUpdated " + nbShipsUpdated);
 }
 
 function onShipRemoved(data)
@@ -121,80 +194,9 @@ function onShipAdded(data)
 	var rot = data[3];
 
 	var boid = createShip(id);
-	boid.pushInterpolationInfo({
+	boid.pushInterpData({
 		time: clock.getElapsedTime(),
 		position: new THREE.Vector3(x, y, 0),
 		orientation: (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), rot)
 	});
 }
-
-var canvas = document.querySelector("canvas");
-canvas.width = canvas.offsetWidth;
-canvas.height = canvas.offsetHeight;
-var width = canvas.offsetWidth;
-var height = canvas.offsetHeight;
-var ctx = canvas.getContext('2d');
-var clock = new THREE.Clock();
-var worldZoom = 3;
-
-function onResize(event) {
-	canvas.width = canvas.offsetWidth;
-	canvas.height = canvas.offsetHeight;
-	width = canvas.offsetWidth;
-	height = canvas.offsetHeight;
-};
-window.onresize = onResize;
-window.onload = onResize;
-onResize();
-
-var config = Stormancer.Configuration.forAccount("997bc6ac-9021-2ad6-139b-da63edee8c58", "boids");
-var client = $.stormancer(config);
-var scene = null;
-client.getPublicScene("main", "{ isObserver:true }").then(function(sc) {
-    scene = sc;
-    scene.registerRoute("position.update", onShipUpdate);
-    scene.registerRoute("ship.remove", onShipRemoved);
-    scene.registerRoute("ship.add", onShipAdded);
-
-    return scene.connect().then(function() {
-        console.log("CONNECTED");
-    });
-});
-
-var boids = {};
-
-function requestRender()
-{
-	render();
-	window.requestAnimationFrame(requestRender);
-}
-
-function render()
-{
-	var delta = clock.getElapsedTime();
-	clearCanvas();
-	drawOrigin();
-	var euler = new THREE.Euler();
-	for (var id in boids)
-	{
-		var boid = boids[id];
-		boid.update(delta);
-		var x = boid.root.position.x;
-		var y = boid.root.position.y;
-		var rot = euler.setFromQuaternion(boid.root.quaternion, 'YZX').y;
-		placeBoid(x, y, rot, boid.ex);
-		drawPoints(boid);
-	}
-}
-
-function computeX(x)
-{
-	return width / 2 + worldZoom * x;
-}
-
-function computeY(y)
-{
-	return height / 2 + worldZoom * y;
-}
-
-requestRender();

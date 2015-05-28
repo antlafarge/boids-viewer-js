@@ -1,11 +1,9 @@
-function Character(id, clock)
+function NetMobile(id)
 {
 	this.id = id;
 	this.name = "";
 
 	this.root = new THREE.Object3D();
-
-	this.clock = clock;
 
     this.interpData = [];
 
@@ -14,32 +12,37 @@ function Character(id, clock)
     this.moveOffset = new THREE.Vector3();
 }
 
-Character.delay = 0.2;
-Character.ex_interp = 1;
-Character.historyDelay = 4;
+NetMobile.interp = true;
+NetMobile.delay = 0.2;
+NetMobile.ex_interp = 0.4;
+NetMobile.historyDelay = 3;
 
-Character.prototype.update = function(delta)
+NetMobile.prototype.update = function(delta, time)
 {
-	this.updateInterp(delta);
+	if (NetMobile.interp)
+	{
+		this.updateInterp(delta, time);
+	}
+	else
+	{
+		this.updateNoInterp(delta, time);
+	}
 };
 
-Character.prototype.updateNoInterp = function(delta)
+NetMobile.prototype.updateNoInterp = function(delta, time)
 {
-	var data = this.interpData.pop();
-	if (data)
+	if (this.interpData.length)
 	{
+		var data = this.interpData.pop();
 		this.root.position.copy(data.position);
 		this.root.quaternion.copy(data.orientation);
 	}
 };
 
-Character.prototype.updateInterp = function(delta)
+NetMobile.prototype.updateInterp = function(delta, time)
 {
-	// get current time
-	var time = this.clock.getElapsedTime();
-
 	// clean old updates (older than 1 second)
-	while (this.interpData.length && (time - this.interpData[0].time) > Character.historyDelay)
+	while (this.interpData.length && (time - this.interpData[0].time) > NetMobile.historyDelay)
 	{
 		this.interpData.shift();
 	}
@@ -49,9 +52,9 @@ Character.prototype.updateInterp = function(delta)
 		return;
 	}
 
-	var targetTime = time - Character.delay;
-	var i0, i1;
+	var targetTime = time - NetMobile.delay;
 	var i = this.interpData.length - 1;
+	var i0, i1;
 	while (i--)
 	{
 		i0 = this.interpData[i];
@@ -63,7 +66,7 @@ Character.prototype.updateInterp = function(delta)
 	}
 
 	var timeTotal = (i1.time - i0.time);
-	var timePassed = Math.min(targetTime - i0.time, timeTotal + Character.ex_interp);
+	var timePassed = Math.min(targetTime - i0.time, timeTotal + NetMobile.ex_interp);
 	var factor = Math.max(timePassed / timeTotal, 0);
 
 	if (factor > 1)
@@ -82,7 +85,7 @@ Character.prototype.updateInterp = function(delta)
 	THREE.Quaternion.slerp(i0.orientation, i1.orientation, this.root.quaternion, factor);
 }
 
-Character.prototype.pushInterpolationInfo = function(data)
+NetMobile.prototype.pushInterpData = function(data)
 {
 	if (this.interpData.length === 0)
 	{
