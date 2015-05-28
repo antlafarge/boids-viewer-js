@@ -17,10 +17,10 @@ var worldZoom = 3;
 window.onresize = onResize;
 window.onload = main;
 
-var config = Stormancer.Configuration.forAccount("997bc6ac-9021-2ad6-139b-da63edee8c58", "boids");
+var config = Stormancer.Configuration.forAccount("d81fc876-6094-3d92-a3d0-86d42d866b96", "boids-demo");
 var client = $.stormancer(config);
 var scene = null;
-client.getPublicScene("main", "{ isObserver:true }").then(function(sc) {
+client.getPublicScene("main-session", "{ isObserver:true }").then(function(sc) {
     scene = sc;
     scene.registerRoute("position.update", onShipUpdate);
     scene.registerRoute("ship.remove", onShipRemoved);
