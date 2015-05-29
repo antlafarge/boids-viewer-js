@@ -9,8 +9,6 @@ function NetMobile(id)
 
     this.ex = false;
     this.desync = false;
-
-    this.moveOffset = new THREE.Vector3();
 }
 
 NetMobile.interp = true;
