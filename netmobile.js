@@ -8,13 +8,14 @@ function NetMobile(id)
     this.interpData = [];
 
     this.ex = false;
+    this.desync = false;
 
     this.moveOffset = new THREE.Vector3();
 }
 
 NetMobile.interp = true;
 NetMobile.delay = 0.2;
-NetMobile.ex_interp = 0.4;
+NetMobile.ex_interp = 0.2;
 NetMobile.historyDelay = 3;
 
 NetMobile.prototype.update = function(delta, time)
@@ -69,20 +70,29 @@ NetMobile.prototype.updateInterp = function(delta, time)
 	var timePassed = Math.min(targetTime - i0.time, timeTotal + NetMobile.ex_interp);
 	var factor = Math.max(timePassed / timeTotal, 0);
 
+	// lerp position
+	this.root.position.lerpVectors(i0.position, i1.position, factor);
+
+	// slerp orientation
+	THREE.Quaternion.slerp(i0.orientation, i1.orientation, this.root.quaternion, factor);
+
 	if (factor > 1)
 	{
 		this.ex = true;
+		if (targetTime > i1.time + NetMobile.ex_interp)
+		{
+			this.desync = true;
+		}
+		else
+		{
+			this.desync = false;
+		}
 	}
 	else
 	{
 		this.ex = false;
+		this.desync = false;
 	}
-
-	this.moveOffset.subVectors(i1.position, i0.position);
-	this.moveOffset.multiplyScalar(factor);
-	this.root.position.addVectors(i0.position, this.moveOffset);
-
-	THREE.Quaternion.slerp(i0.orientation, i1.orientation, this.root.quaternion, factor);
 }
 
 NetMobile.prototype.pushInterpData = function(data)
@@ -94,5 +104,8 @@ NetMobile.prototype.pushInterpData = function(data)
 	}
 
 	// push update in history
-	this.interpData.push(data);
+	if (!this.interpData.length || data.time > this.interpData[this.interpData.length-1].time)
+	{
+		this.interpData.push(data);
+	}
 }

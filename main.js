@@ -1,3 +1,5 @@
+var debug = true;
+
 var netAverageDelta = 0.2;
 var netDataCount = 0;
 var netDeltaClock = new THREE.Clock();
@@ -47,7 +49,10 @@ function render()
 	var delta = clock.getDelta();
 	var time = clock.getElapsedTime();
 	clearCanvas();
-	drawOrigin();
+	if (debug)
+	{
+		drawOrigin();
+	}
 	var euler = new THREE.Euler();
 	for (var id in boids)
 	{
@@ -57,7 +62,7 @@ function render()
 		var y = boid.root.position.y;
 		var rot = euler.setFromQuaternion(boid.root.quaternion, 'YZX').y;
 		drawPoints(boid);
-		placeBoid(x, y, rot, boid.ex);
+		placeBoid(x, y, rot, boid.ex, boid.desync);
 	}
 }
 
@@ -87,7 +92,10 @@ function clearCanvas()
 
 function drawOrigin()
 {
-	var originSize = 4;
+	var originSize = 2;
+
+	/*ctx.fillStyle = "#777777";
+	ctx.fillRect(computeX(0), computeY(0), originSize, originSize);*/
 
 	ctx.beginPath();
 	ctx.moveTo(computeX(-originSize), computeY(0));
@@ -107,33 +115,44 @@ function drawPoints(boid)
 	var dotSize = 2;
 	for (var i in boid.interpData)
 	{
-		ctx.fillStyle = "#FFFFFF";
+		ctx.fillStyle = "#777777";
 		ctx.fillRect(computeX(boid.interpData[i].position.x), computeY(boid.interpData[i].position.y), dotSize, dotSize);
 	}
 }
 
-function placeBoid(x, y, rot, ex)
+function placeBoid(x, y, rot, ex, desync)
 {
 	ctx.save();
 	ctx.translate(computeX(x), computeY(y));
 	ctx.rotate(rot);
-	drawBoid(ex);
+	drawBoid(ex, desync);
 	ctx.restore();
 }
 
-function drawBoid(ex)
+function drawBoid(ex, desync)
 {
 	ctx.beginPath();
 	ctx.moveTo(-6, -4);
 	ctx.lineTo(-6, +4);
 	ctx.lineTo(+6, +0);
-	if (ex)
+	if (debug)
 	{
-		ctx.fillStyle = "#FF0000";
+		if (desync)
+		{
+			ctx.fillStyle = "#FF0000";
+		}
+		else if (ex)
+		{
+			ctx.fillStyle = "#FFFF00";
+		}
+		else
+		{
+			ctx.fillStyle = "#00DD00";
+		}
 	}
 	else
 	{
-		ctx.fillStyle = "#EEEEEE";
+		ctx.fillStyle = "#FFFFFF";
 	}
 	ctx.fill();
 }
@@ -178,7 +197,11 @@ function onShipUpdate(data, buffer)
 		updateShip(id, x, y, rot);
 		nbShipsUpdated++;
 	}
-	console.log("time " + netTime + "\tdelta " + netDelta + "\tnetAverageDelta " + netAverageDelta + "\tshipsUpdated " + nbShipsUpdated);
+
+	if (debug)
+	{
+		console.log("time " + netTime + "\tdelta " + netDelta + "\tnetAverageDelta " + netAverageDelta + "\tshipsUpdated " + nbShipsUpdated);
+	}
 }
 
 function onShipRemoved(data)
@@ -189,9 +212,9 @@ function onShipRemoved(data)
 function onShipAdded(data)
 {
 	var id = data[0];
-	var x = data[1];
-	var y = data[2];
-	var rot = data[3];
+	var rot = data[1];
+	var x = data[2];
+	var y = data[3];
 
 	var boid = createShip(id);
 	boid.pushInterpData({
