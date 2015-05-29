@@ -135,24 +135,17 @@ function drawBoid(ex, desync)
 	ctx.moveTo(-6, -4);
 	ctx.lineTo(-6, +4);
 	ctx.lineTo(+6, +0);
-	if (debug)
+	if (desync)
 	{
-		if (desync)
-		{
-			ctx.fillStyle = "#FF0000";
-		}
-		else if (ex)
-		{
-			ctx.fillStyle = "#FFFF00";
-		}
-		else
-		{
-			ctx.fillStyle = "#00DD00";
-		}
+		ctx.fillStyle = "#FF0000";
+	}
+	else if (ex)
+	{
+		ctx.fillStyle = "#FFFF00";
 	}
 	else
 	{
-		ctx.fillStyle = "#FFFFFF";
+		ctx.fillStyle = "#00DD00";
 	}
 	ctx.fill();
 }
@@ -181,6 +174,11 @@ function onShipUpdate(data, buffer)
 	netDataCount++;
 	netAverageDelta = (netDataCount * netAverageDelta + netDelta) / (netDataCount + 1);
 	estimatedTime = netTime;
+
+	if (buffer.byteLength <= 3) // DELETE THIS LATER
+	{
+		return;
+	}
 
 	var dataView = new DataView(buffer, 3);
 	var nbShipsUpdated = 0;
