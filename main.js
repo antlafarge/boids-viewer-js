@@ -4,7 +4,6 @@ var netAverageDelta = 0.2;
 var netDataCount = 0;
 var netDeltaClock = new THREE.Clock();
 var estimatedTime = 0;
-var netEpsilon = 0.1;
 
 var canvas = document.querySelector("canvas");
 var width = canvas.offsetWidth;
@@ -31,6 +30,10 @@ client.getPublicScene("main-session", "{ isObserver:true }").then(function(sc) {
         console.log("CONNECTED");
     });
 });
+
+setInterval(function() {
+	estimatedTime = clock.getElapsedTime();
+}, 200);
 
 function main()
 {
@@ -173,7 +176,7 @@ function onShipUpdate(data, buffer)
 	var netTime = clock.getElapsedTime();
 	netDataCount++;
 	netAverageDelta = (netDataCount * netAverageDelta + netDelta) / (netDataCount + 1);
-	estimatedTime = netTime;
+	//estimatedTime = netTime;
 
 	if (buffer.byteLength <= 3) // DELETE THIS LATER
 	{
