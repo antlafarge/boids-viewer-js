@@ -13,8 +13,8 @@ function NetMobile(id)
 
 NetMobile.interp = true;
 NetMobile.delay = 0.4;
-NetMobile.ex_interp = 2;
-NetMobile.historyDelay = 3;
+NetMobile.ex_interp = 1;
+NetMobile.historyDelay = 2;
 
 NetMobile.prototype.update = function(delta, time)
 {
