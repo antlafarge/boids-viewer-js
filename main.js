@@ -65,7 +65,7 @@ function render()
 		var y = boid.root.position.y;
 		var rot = euler.setFromQuaternion(boid.root.quaternion, 'YZX').y;
 		drawPoints(boid);
-		placeBoid(x, y, rot, boid.ex, boid.desync);
+		placeBoid(x, y, -rot, boid.ex, boid.desync);
 	}
 }
 
@@ -76,7 +76,7 @@ function computeX(x)
 
 function computeY(y)
 {
-	return height / 2 + worldZoom * y;
+	return height / 2 + worldZoom * -y;
 }
 
 function onResize(event)
