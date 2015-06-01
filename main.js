@@ -3,7 +3,7 @@ var debug = true;
 var netAverageDelta = 0.2;
 var netDataCount = 0;
 var netDeltaClock = new THREE.Clock();
-var estimatedTime = 0;
+var firstUpdateDataReceived = false;
 
 var canvas = document.querySelector("canvas");
 var width = canvas.offsetWidth;
@@ -30,10 +30,6 @@ client.getPublicScene("main", "{ isObserver:true }").then(function(sc) {
         console.log("CONNECTED");
     });
 });
-
-setInterval(function() {
-	estimatedTime = clock.getElapsedTime();
-}, 200);
 
 function main()
 {
@@ -100,16 +96,16 @@ function drawOrigin()
 	/*ctx.fillStyle = "#777777";
 	ctx.fillRect(computeX(0), computeY(0), originSize, originSize);*/
 
+	ctx.strokeStyle = "#777777";
+	
 	ctx.beginPath();
 	ctx.moveTo(computeX(-originSize), computeY(0));
 	ctx.lineTo(computeX(+originSize), computeY(0));
-	ctx.strokeStyle = "#777777";
 	ctx.stroke();
 
 	ctx.beginPath();
 	ctx.moveTo(computeX(0), computeY(-originSize));
 	ctx.lineTo(computeX(0), computeY(+originSize));
-	ctx.strokeStyle = "#777777";
 	ctx.stroke();
 }
 
@@ -160,11 +156,11 @@ function createShip(id)
 	return boid;
 }
 
-function updateShip(id, x, y, rot)
+function updateShip(id, x, y, rot, time)
 {
 	var boid = boids[id];
 	boid.pushInterpData({
-		time: estimatedTime,
+		time: time,
 		position: new THREE.Vector3(x, y, 0),
 		orientation: (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), rot)
 	});
@@ -176,7 +172,6 @@ function onShipUpdate(data, buffer)
 	var netTime = clock.getElapsedTime();
 	netDataCount++;
 	netAverageDelta = (netDataCount * netAverageDelta + netDelta) / (netDataCount + 1);
-	//estimatedTime = netTime;
 
 	if (buffer.byteLength <= 3) // DELETE THIS LATER
 	{
@@ -185,7 +180,7 @@ function onShipUpdate(data, buffer)
 
 	var dataView = new DataView(buffer, 3);
 	var nbShipsUpdated = 0;
-	for (var i = 0; i < dataView.byteLength; i += 14)
+	for (var i = 0; i < dataView.byteLength; i += 18)
 	{
 		var id = dataView.getUint16(i+0, true);
 		if (!boids[id])
@@ -195,32 +190,36 @@ function onShipUpdate(data, buffer)
 		var x = dataView.getFloat32(i+2, true);
 		var y = dataView.getFloat32(i+6, true);
 		var rot = dataView.getFloat32(i+10, true);
-		updateShip(id, x, y, rot);
+		var time = dataView.getUint32(i+14, true) * 0.001;
+		if (!firstUpdateDataReceived)
+		{
+			clock.elapsedTime = time;
+			firstUpdateDataReceived = true;
+		}
+		updateShip(id, x, y, rot, time);
 		nbShipsUpdated++;
 	}
 
 	if (debug)
 	{
-		console.log("time " + netTime + "\tdelta " + netDelta + "\tnetAverageDelta " + netAverageDelta + "\tshipsUpdated " + nbShipsUpdated);
+		console.log("#" + netDataCount + "\ttime " + netTime + "\tdelta " + netDelta + "\tnetAverageDelta " + netAverageDelta + "\tshipsUpdated " + nbShipsUpdated);
 	}
 }
 
 function onShipRemoved(data)
 {
-	delete boids[data];
+	var id = data;
+	delete boids[id];
 }
 
 function onShipAdded(data)
 {
-	var id = data[0];
-	var rot = data[1];
-	var x = data[2];
-	var y = data[3];
-
-	var boid = createShip(id);
+/*
+	var boid = createShip(data.id);
 	boid.pushInterpData({
-		time: clock.getElapsedTime(),
-		position: new THREE.Vector3(x, y, 0),
-		orientation: (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), rot)
+		time: data.time,
+		position: new THREE.Vector3(data.x, data.y, 0),
+		orientation: (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), data.rot)
 	});
+*/
 }
