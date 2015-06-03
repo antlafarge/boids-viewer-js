@@ -1,5 +1,9 @@
 var debug = true;
 
+var accountId = "997bc6ac-9021-2ad6-139b-da63edee8c58";
+var applicationName = "boids";
+var sceneName = "main";
+
 var netAverageDelta = 0.2;
 var netDataCount = 0;
 var netDeltaClock = new THREE.Clock();
@@ -18,16 +22,18 @@ var worldZoom = 3;
 window.onresize = onResize;
 window.onload = main;
 
-var config = Stormancer.Configuration.forAccount("997bc6ac-9021-2ad6-139b-da63edee8c58", "boids");
+var config = Stormancer.Configuration.forAccount(accountId, applicationName);
 var client = $.stormancer(config);
 var scene = null;
-client.getPublicScene("main", "{ isObserver:true }").then(function(sc) {
+client.getPublicScene(sceneName, "{ isObserver:true }").then(function(sc) {
     scene = sc;
     scene.registerRoute("position.update", onShipUpdate);
     scene.registerRoute("ship.remove", onShipRemoved);
     scene.registerRoute("ship.add", onShipAdded);
+    scene.registerRoute("clock", onClock);
     return scene.connect().then(function() {
         console.log("CONNECTED");
+        scene.send("clock", Date.now());
     });
 });
 
@@ -112,10 +118,11 @@ function drawOrigin()
 function drawPoints(boid)
 {
 	var dotSize = 2;
-	for (var i in boid.interpData)
+	for (var i=0; i<boid.interpData.length && i < NetMobile.nbPointsToDraw; i++)
 	{
+		var interpFrame = boid.interpData[i];
 		ctx.fillStyle = "#777777";
-		ctx.fillRect(computeX(boid.interpData[i].position.x), computeY(boid.interpData[i].position.y), dotSize, dotSize);
+		ctx.fillRect(computeX(interpFrame.position.x), computeY(interpFrame.position.y), dotSize, dotSize);
 	}
 }
 
@@ -151,12 +158,10 @@ function drawBoid(ex, desync)
 
 function createShip(id)
 {
-	var boid = new NetMobile(id);
-	boids[id] = boid;
-	return boid;
+	return boids[id] = new NetMobile(id);
 }
 
-function updateShip(id, x, y, rot, time)
+function updateShip(id, x, y, rot, time, seq)
 {
 	var boid = boids[id];
 	boid.pushInterpData({
@@ -164,23 +169,40 @@ function updateShip(id, x, y, rot, time)
 		position: new THREE.Vector3(x, y, 0),
 		orientation: (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), rot)
 	});
+	if (boid.seq && boid.seq != seq - 1)
+	{
+		console.error((seq - boid.seq - 1) , "packets lost, boid", id, ", lastReceivedSeq", boid.seq, ", currentSeq", seq);
+	}
 }
 
-function onShipUpdate(data, buffer)
+function onClock(data, dataView)
+{
+/*
+	var serverTime = dataView.getUint32();
+	var lastTimestamp = dataView.getUint32();
+	var timestamp = Date.now();
+	var latency = (timestamp - lastTimestamp) / 2;
+	clock.elapsedTime = serverTime - latency;
+	console.log(serverTime, lastTimestamp, timestamp, latency, clock.elapsedTime);
+*/
+}
+
+function onShipUpdate(data, dataView)
 {
 	var netDelta = netDeltaClock.getDelta();
 	var netTime = clock.getElapsedTime();
 	netDataCount++;
 	netAverageDelta = (netDataCount * netAverageDelta + netDelta) / (netDataCount + 1);
 
-	if (buffer.byteLength <= 3) // DELETE THIS LATER
-	{
-		return;
-	}
-
-	var dataView = new DataView(buffer, 3);
+	var serverTime = dataView.getUint32(1, true);
+	//var time = clock.getElapsedTime();
+	//var delay = time - serverTime;
+	//...
+	//console.log(serverTime/1000);
 	var nbShipsUpdated = 0;
-	for (var i = 0; i < dataView.byteLength; i += 18)
+	var time;
+	var frameSize = 22;
+	for (var i = 5; dataView.byteLength - i >= frameSize; i += frameSize)
 	{
 		var id = dataView.getUint16(i+0, true);
 		if (!boids[id])
@@ -190,19 +212,27 @@ function onShipUpdate(data, buffer)
 		var x = dataView.getFloat32(i+2, true);
 		var y = dataView.getFloat32(i+6, true);
 		var rot = dataView.getFloat32(i+10, true);
-		var time = dataView.getUint32(i+14, true) * 0.001;
-		if (!firstUpdateDataReceived)
-		{
-			clock.elapsedTime = time;
-			firstUpdateDataReceived = true;
-		}
-		updateShip(id, x, y, rot, time);
-		nbShipsUpdated++;
+		time = dataView.getUint32(i+14, true) / 1000;
+		var seq = dataView.getUint32(i+18, true);
+		updateShip(id, x, y, rot, time, seq);
+	}
+	if (firstUpdateDataReceived === false)
+	{
+		clock.elapsedTime = time;
+		firstUpdateDataReceived = true;
 	}
 
-	if (debug)
+	if (netDelta > 1)
 	{
-		console.log("#" + netDataCount + "\ttime " + netTime + "\tdelta " + netDelta + "\tnetAverageDelta " + netAverageDelta + "\tshipsUpdated " + nbShipsUpdated);
+		console.log("netDataCount", netDataCount, "\ttime", netTime, "\tdelta", netDelta, "\tnetAverageDelta", netAverageDelta, "\tshipsUpdated ", nbShipsUpdated);
+	}
+	else if (netDelta > 0.5)
+	{
+		console.log("netDataCount", netDataCount, "\ttime", netTime, "\tdelta", netDelta, "\tnetAverageDelta", netAverageDelta, "\tshipsUpdated ", nbShipsUpdated);
+	}
+	else if (debug)
+	{
+		//console.log("netDataCount", netDataCount, "\ttime", netTime, "\tdelta", netDelta, "\tnetAverageDelta", netAverageDelta, "\tshipsUpdated ", nbShipsUpdated);
 	}
 }
 
