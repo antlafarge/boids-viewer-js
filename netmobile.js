@@ -15,6 +15,7 @@ NetMobile.interp = true;
 NetMobile.delay = 0.4;
 NetMobile.ex_interp = 1;
 NetMobile.historyDelay = 2;
+NetMobile.nbPointsToDraw = +Infinity;
 
 NetMobile.prototype.update = function(delta, time)
 {
@@ -102,8 +103,8 @@ NetMobile.prototype.pushInterpData = function(data)
 	}
 
 	// push update in history
-	if (!this.interpData.length || data.time > this.interpData[this.interpData.length-1].time)
-	{
+	//if (!this.interpData.length || data.time > this.interpData[this.interpData.length-1].time)
+	//{
 		this.interpData.push(data);
-	}
+	//}
 }
