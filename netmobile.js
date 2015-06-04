@@ -54,15 +54,14 @@ NetMobile.prototype.updateInterp = function(delta, time)
 
 	var targetTime = time - NetMobile.delay;
 	var i = this.interpData.length - 1;
-	var i0, i1;
-	while (i--)
+	var i1 = this.interpData[i];
+	var i0 = this.interpData[i-1];
+	var begin = this.interpData[0];
+	while (!(i0 == begin || targetTime >= i0.time))
 	{
-		i0 = this.interpData[i];
-		i1 = this.interpData[i + 1];
-		if (targetTime >= i0.time)
-		{
-			break;
-		}
+		i--;
+		i1 = i0;
+		i0 = this.interpData[i-1];
 	}
 
 	var timeTotal = (i1.time - i0.time);
@@ -103,8 +102,8 @@ NetMobile.prototype.pushInterpData = function(data)
 	}
 
 	// push update in history
-	//if (!this.interpData.length || data.time > this.interpData[this.interpData.length-1].time)
-	//{
+	if (!this.interpData.length || data.time > this.interpData[this.interpData.length-1].time)
+	{
 		this.interpData.push(data);
-	//}
+	}
 }

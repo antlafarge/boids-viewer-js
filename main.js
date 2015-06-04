@@ -66,7 +66,10 @@ function render()
 		var x = boid.root.position.x;
 		var y = boid.root.position.y;
 		var rot = euler.setFromQuaternion(boid.root.quaternion, 'YZX').y;
-		drawPoints(boid);
+		if (debug)
+		{
+			drawPoints(boid);
+		}
 		placeBoid(x, y, -rot, boid.ex, boid.desync);
 	}
 }
@@ -118,7 +121,7 @@ function drawOrigin()
 function drawPoints(boid)
 {
 	var dotSize = 2;
-	for (var i=0; i<boid.interpData.length && i < NetMobile.nbPointsToDraw; i++)
+	for (var i=boid.interpData.length-1; i>=0 && i < NetMobile.nbPointsToDraw; i--)
 	{
 		var interpFrame = boid.interpData[i];
 		ctx.fillStyle = "#777777";
@@ -172,6 +175,7 @@ function updateShip(id, x, y, rot, time, seq)
 	if (boid.seq && boid.seq != seq - 1)
 	{
 		console.error((seq - boid.seq - 1) , "packets lost, boid", id, ", lastReceivedSeq", boid.seq, ", currentSeq", seq);
+		boid.seq = seq;
 	}
 }
 
@@ -201,8 +205,9 @@ function onShipUpdate(data, dataView)
 	//console.log(serverTime/1000);
 	var nbShipsUpdated = 0;
 	var time;
+	var startByte = 5;
 	var frameSize = 22;
-	for (var i = 5; dataView.byteLength - i >= frameSize; i += frameSize)
+	for (var i = startByte; dataView.byteLength - i >= frameSize; i += frameSize)
 	{
 		var id = dataView.getUint16(i+0, true);
 		if (!boids[id])
@@ -222,13 +227,13 @@ function onShipUpdate(data, dataView)
 		firstUpdateDataReceived = true;
 	}
 
-	if (netDelta > 1)
+	if (netDelta > NetMobile.ex_interp)
 	{
-		console.log("netDataCount", netDataCount, "\ttime", netTime, "\tdelta", netDelta, "\tnetAverageDelta", netAverageDelta, "\tshipsUpdated ", nbShipsUpdated);
+		console.error("netDataCount", netDataCount, "\ttime", netTime, "\tdelta", netDelta, "\tnetAverageDelta", netAverageDelta, "\tshipsUpdated ", nbShipsUpdated);
 	}
-	else if (netDelta > 0.5)
+	else if (netDelta > NetMobile.delay)
 	{
-		console.log("netDataCount", netDataCount, "\ttime", netTime, "\tdelta", netDelta, "\tnetAverageDelta", netAverageDelta, "\tshipsUpdated ", nbShipsUpdated);
+		console.warn("netDataCount", netDataCount, "\ttime", netTime, "\tdelta", netDelta, "\tnetAverageDelta", netAverageDelta, "\tshipsUpdated ", nbShipsUpdated);
 	}
 	else if (debug)
 	{
@@ -252,4 +257,9 @@ function onShipAdded(data)
 		orientation: (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), data.rot)
 	});
 */
+}
+
+function toggleDebug()
+{
+	debug = !debug;
 }
