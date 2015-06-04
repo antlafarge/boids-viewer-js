@@ -57,6 +57,7 @@ function render()
 	if (debug)
 	{
 		drawOrigin();
+		drawBoidsAveragePoint();
 	}
 	var euler = new THREE.Euler();
 	for (var id in boids)
@@ -127,6 +128,25 @@ function drawPoints(boid)
 		ctx.fillStyle = "#777777";
 		ctx.fillRect(computeX(interpFrame.position.x), computeY(interpFrame.position.y), dotSize, dotSize);
 	}
+}
+
+function drawBoidsAveragePoint()
+{
+	var x = 0;
+	var y = 0;
+	var i = 0;
+	for (var b in boids)
+	{
+		var boid = boids[b];
+		x += boid.root.position.x;
+		y += boid.root.position.y;
+		i++;
+	}
+	x /= i;
+	y /= i;
+	var dotSize = 4;
+	ctx.fillStyle = "#FF0000";
+	ctx.fillRect(computeX(x), computeY(y), dotSize, dotSize);
 }
 
 function placeBoid(x, y, rot, ex, desync)

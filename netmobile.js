@@ -57,7 +57,7 @@ NetMobile.prototype.updateInterp = function(delta, time)
 	var i1 = this.interpData[i];
 	var i0 = this.interpData[i-1];
 	var begin = this.interpData[0];
-	while (!(i0 == begin || targetTime >= i0.time))
+	while (i0 != begin && targetTime < i0.time)
 	{
 		i--;
 		i1 = i0;
