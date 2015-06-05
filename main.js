@@ -13,7 +13,11 @@ var canvas = document.querySelector("canvas");
 var width = canvas.offsetWidth;
 var height = canvas.offsetHeight;
 var ctx = canvas.getContext('2d');
+var fontSize = 1;
+ctx.font = fontSize+"px serif";
 var clock = new THREE.Clock();
+var centerX = 0;
+var centerY = 0;
 
 var boids = {};
 
@@ -27,9 +31,9 @@ var client = $.stormancer(config);
 var scene = null;
 client.getPublicScene(sceneName, "{ isObserver:true }").then(function(sc) {
     scene = sc;
-    scene.registerRoute("position.update", onShipUpdate);
-    scene.registerRoute("ship.remove", onShipRemoved);
-    scene.registerRoute("ship.add", onShipAdded);
+    scene.registerRoute("position.update", onBoidUpdate);
+    scene.registerRoute("boid.remove", onBoidRemoved);
+    scene.registerRoute("boid.add", onBoidAdded);
     scene.registerRoute("clock", onClock);
     return scene.connect().then(function() {
         console.log("CONNECTED");
@@ -71,18 +75,8 @@ function render()
 		{
 			drawPoints(boid);
 		}
-		placeBoid(x, y, -rot, boid.ex, boid.desync);
+		placeBoid(id, x, y, rot, boid.ex, boid.desync);
 	}
-}
-
-function computeX(x)
-{
-	return width / 2 + worldZoom * x;
-}
-
-function computeY(y)
-{
-	return height / 2 + worldZoom * -y;
 }
 
 function onResize(event)
@@ -91,112 +85,110 @@ function onResize(event)
 	canvas.height = canvas.offsetHeight;
 	width = canvas.offsetWidth;
 	height = canvas.offsetHeight;
+	ctx.translate(width/2, height/2);
+	ctx.scale(3, 3);
 }
 
 function clearCanvas()
 {
 	ctx.fillStyle = "#000022";
-	ctx.fillRect(0, 0, width, height);
+	ctx.fillRect(-width/2, -height/2, width, height);
 }
 
 function drawOrigin()
 {
-	var originSize = 2;
+	var originSize = 0.5;
 
 	/*ctx.fillStyle = "#777777";
-	ctx.fillRect(computeX(0), computeY(0), originSize, originSize);*/
+	ctx.fillRect(0, 0, originSize, originSize);*/
 
 	ctx.strokeStyle = "#777777";
 	
 	ctx.beginPath();
-	ctx.moveTo(computeX(-originSize), computeY(0));
-	ctx.lineTo(computeX(+originSize), computeY(0));
+	ctx.moveTo(-originSize, 0);
+	ctx.lineTo(+originSize, 0);
 	ctx.stroke();
 
 	ctx.beginPath();
-	ctx.moveTo(computeX(0), computeY(-originSize));
-	ctx.lineTo(computeX(0), computeY(+originSize));
+	ctx.moveTo(0, -originSize);
+	ctx.lineTo(0, +originSize);
 	ctx.stroke();
 }
 
 function drawPoints(boid)
 {
-	var dotSize = 2;
+	var dotSize = 0.5;
 	for (var i=boid.interpData.length-1; i>=0 && i < NetMobile.nbPointsToDraw; i--)
 	{
 		var interpFrame = boid.interpData[i];
 		ctx.fillStyle = "#777777";
-		ctx.fillRect(computeX(interpFrame.position.x), computeY(interpFrame.position.y), dotSize, dotSize);
+		ctx.fillRect(interpFrame.position.x, interpFrame.position.y, dotSize, dotSize);
 	}
 }
 
 function drawBoidsAveragePoint()
 {
-	var x = 0;
-	var y = 0;
+	centerX = 0;
+	centerY = 0;
 	var i = 0;
 	for (var b in boids)
 	{
 		var boid = boids[b];
-		x += boid.root.position.x;
-		y += boid.root.position.y;
+		centerX += boid.root.position.x;
+		centerY += boid.root.position.y;
 		i++;
 	}
-	x /= i;
-	y /= i;
-	var dotSize = 4;
+	centerX /= i;
+	centerY /= i;
+	var dotSize = 1;
 	ctx.fillStyle = "#FF0000";
-	ctx.fillRect(computeX(x), computeY(y), dotSize, dotSize);
+	ctx.fillRect(centerX, centerY, dotSize, dotSize);
 }
 
-function placeBoid(x, y, rot, ex, desync)
+function placeBoid(id, x, y, rot, ex, desync)
 {
 	ctx.save();
-	ctx.translate(computeX(x), computeY(y));
+	ctx.translate(x, y);
 	ctx.rotate(rot);
-	drawBoid(ex, desync);
+	drawBoid(id, ex, desync);
 	ctx.restore();
 }
 
-function drawBoid(ex, desync)
+function drawBoid(id, ex, desync)
 {
+	ctx.scale(0.5, 0.5);
 	ctx.beginPath();
-	ctx.moveTo(-6, -4);
-	ctx.lineTo(-6, +4);
-	ctx.lineTo(+6, +0);
-	if (desync)
+	ctx.moveTo(-3, -2);
+	ctx.lineTo(-3, +2);
+	ctx.lineTo(+3, +0);
+	if (debug)
 	{
-		ctx.fillStyle = "#FF0000";
-	}
-	else if (ex)
-	{
-		ctx.fillStyle = "#FFFF00";
+		if (desync)
+		{
+			ctx.fillStyle = "#FF0000";
+		}
+		else if (ex)
+		{
+			ctx.fillStyle = "#FFFF00";
+		}
+		else
+		{
+			ctx.fillStyle = "#00DD00";
+		}
 	}
 	else
 	{
-		ctx.fillStyle = "#00DD00";
+		ctx.fillStyle = "#DDDDDD";
 	}
 	ctx.fill();
-}
-
-function createShip(id)
-{
-	return boids[id] = new NetMobile(id);
-}
-
-function updateShip(id, x, y, rot, time, seq)
-{
-	var boid = boids[id];
-	boid.pushInterpData({
-		time: time,
-		position: new THREE.Vector3(x, y, 0),
-		orientation: (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), rot)
-	});
-	if (boid.seq && boid.seq != seq - 1)
-	{
-		console.error((seq - boid.seq - 1) , "packets lost, boid", id, ", lastReceivedSeq", boid.seq, ", currentSeq", seq);
-		boid.seq = seq;
-	}
+/*
+	ctx.save();
+	ctx.scale(0.5, 0.5);
+	ctx.rotate(Math.PI / 2)
+	ctx.fillStyle = "#DDDDDD";
+	ctx.fillText(id, 0, 0);
+	ctx.restore();
+*/
 }
 
 function onClock(data, dataView)
@@ -211,19 +203,19 @@ function onClock(data, dataView)
 */
 }
 
-function onShipUpdate(data, dataView)
+function onBoidUpdate(data, dataView)
 {
 	var netDelta = netDeltaClock.getDelta();
 	var netTime = clock.getElapsedTime();
 	netDataCount++;
 	netAverageDelta = (netDataCount * netAverageDelta + netDelta) / (netDataCount + 1);
 
-	var serverTime = dataView.getUint32(1, true);
+	var serverTime = dataView.getUint32(1, true) / 1000;
 	//var time = clock.getElapsedTime();
 	//var delay = time - serverTime;
 	//...
 	//console.log(serverTime/1000);
-	var nbShipsUpdated = 0;
+	var nbBoidsUpdated = 0;
 	var time;
 	var startByte = 5;
 	var frameSize = 22;
@@ -232,14 +224,26 @@ function onShipUpdate(data, dataView)
 		var id = dataView.getUint16(i+0, true);
 		if (!boids[id])
 		{
-			createShip(id);
+			boids[id] = new NetMobile(id);
 		}
 		var x = dataView.getFloat32(i+2, true);
 		var y = dataView.getFloat32(i+6, true);
 		var rot = dataView.getFloat32(i+10, true);
 		time = dataView.getUint32(i+14, true) / 1000;
 		var seq = dataView.getUint32(i+18, true);
-		updateShip(id, x, y, rot, time, seq);
+		
+		var boid = boids[id];
+		boid.pushInterpData({
+			time: time,
+			position: new THREE.Vector3(x, y, 0),
+			orientation: (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), rot)
+		});
+
+		if (boids[id].seq && boid.seq != seq - 1)
+		{
+			console.error((seq - boid.seq - 1) ,"packets lost, boid", id, ", previousSeq", boid.seq, ", currentSeq", seq, ", at time", (new Date()));
+		}
+		boid.seq = seq;
 	}
 	if (firstUpdateDataReceived === false)
 	{
@@ -249,34 +253,35 @@ function onShipUpdate(data, dataView)
 
 	if (netDelta > NetMobile.ex_interp)
 	{
-		console.error("netDataCount", netDataCount, "\ttime", netTime, "\tdelta", netDelta, "\tnetAverageDelta", netAverageDelta, "\tshipsUpdated ", nbShipsUpdated);
+		console.error("netDataCount", netDataCount, "\ttime", netTime, "\tdelta", netDelta, "\tnetAverageDelta", netAverageDelta, "\tboidsUpdated ", nbBoidsUpdated);
 	}
 	else if (netDelta > NetMobile.delay)
 	{
-		console.warn("netDataCount", netDataCount, "\ttime", netTime, "\tdelta", netDelta, "\tnetAverageDelta", netAverageDelta, "\tshipsUpdated ", nbShipsUpdated);
+		console.warn("netDataCount", netDataCount, "\ttime", netTime, "\tdelta", netDelta, "\tnetAverageDelta", netAverageDelta, "\tboidsUpdated ", nbBoidsUpdated);
 	}
 	else if (debug)
 	{
-		//console.log("netDataCount", netDataCount, "\ttime", netTime, "\tdelta", netDelta, "\tnetAverageDelta", netAverageDelta, "\tshipsUpdated ", nbShipsUpdated);
+		//console.log("netDataCount", netDataCount, "\ttime", netTime, "\tdelta", netDelta, "\tnetAverageDelta", netAverageDelta, "\tboidsUpdated ", nbBoidsUpdated);
 	}
 }
 
-function onShipRemoved(data)
-{
-	var id = data;
-	delete boids[id];
-}
-
-function onShipAdded(data)
+function onBoidAdded(data)
 {
 /*
-	var boid = createShip(data.id);
+	var boid = new NetMobile(id);
 	boid.pushInterpData({
 		time: data.time,
 		position: new THREE.Vector3(data.x, data.y, 0),
 		orientation: (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), data.rot)
 	});
+	boids[id] = boid;
 */
+}
+
+function onBoidRemoved(data)
+{
+	var id = data;
+	delete boids[id];
 }
 
 function toggleDebug()
