@@ -31,7 +31,7 @@ var client = $.stormancer(config);
 var scene = null;
 client.getPublicScene(sceneName, "{ isObserver:true }").then(function(sc) {
     scene = sc;
-    scene.registerRoute("position.update", onBoidUpdate);
+    scene.registerRouteRaw("position.update", onBoidUpdate);
     scene.registerRoute("boid.remove", onBoidRemoved);
     scene.registerRoute("boid.add", onBoidAdded);
     scene.registerRoute("clock", onClock);
@@ -86,7 +86,7 @@ function onResize(event)
 	width = canvas.offsetWidth;
 	height = canvas.offsetHeight;
 	ctx.translate(width/2, height/2);
-	ctx.scale(3, 3);
+	ctx.scale(worldZoom, -worldZoom);
 }
 
 function clearCanvas()
@@ -191,7 +191,7 @@ function drawBoid(id, ex, desync)
 */
 }
 
-function onClock(data, dataView)
+function onClock(data)
 {
 /*
 	var serverTime = dataView.getUint32();
@@ -203,7 +203,7 @@ function onClock(data, dataView)
 */
 }
 
-function onBoidUpdate(data, dataView)
+function onBoidUpdate(dataView)
 {
 	var netDelta = netDeltaClock.getDelta();
 	var netTime = clock.getElapsedTime();

@@ -768,7 +768,12 @@ var Stormancer;
             var _this = this;
             this.addRoute(route, function (packet) {
                 var message = _this.hostConnection.serializer.deserialize(packet.data);
-                handler(message, new DataView(packet.data.buffer, 3));
+                handler(message);
+            });
+        };
+        Scene.prototype.registerRouteRaw = function (route, handler) {
+            this.addRoute(route, function (packet) {
+                handler(new DataView(packet.data.buffer, 3));
             });
         };
         Scene.prototype.onMessageImpl = function (route, handler) {
