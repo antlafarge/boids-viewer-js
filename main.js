@@ -86,7 +86,7 @@ function onResize(event)
 	width = canvas.offsetWidth;
 	height = canvas.offsetHeight;
 	ctx.translate(width/2, height/2);
-	ctx.scale(3, 3);
+	ctx.scale(worldZoom, -worldZoom);
 }
 
 function clearCanvas()
