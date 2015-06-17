@@ -32,9 +32,9 @@ var scene = null;
 client.getPublicScene(sceneName, "{ isObserver:true }").then(function(sc) {
     scene = sc;
     scene.registerRouteRaw("position.update", onBoidUpdate);
-    scene.registerRoute("boid.remove", onBoidRemoved);
-    scene.registerRoute("boid.add", onBoidAdded);
-    scene.registerRoute("clock", onClock);
+    scene.registerRoute("ship.remove", onBoidRemoved);
+    //scene.registerRoute("ship.add", onBoidAdded);
+    //scene.registerRoute("clock", onClock);
     return scene.connect().then(function() {
         console.log("CONNECTED");
         scene.send("clock", Date.now());
@@ -191,7 +191,7 @@ function drawBoid(id, ex, desync)
 */
 }
 
-function onClock(data)
+function onClock(dataView)
 {
 /*
 	var serverTime = dataView.getUint32();
@@ -214,14 +214,14 @@ function onBoidUpdate(dataView)
 	//var time = clock.getElapsedTime();
 	//var delay = time - serverTime;
 	//...
-	//console.log(serverTime/1000);
+	//console.log(serverTime);
 	var nbBoidsUpdated = 0;
 	var time;
 	var startByte = 5;
 	var frameSize = 22;
 	for (var i = startByte; dataView.byteLength - i >= frameSize; i += frameSize)
 	{
-		var id = dataView.getUint16(i+0, true);
+		var id = dataView.getUint16(i, true);
 		if (!boids[id])
 		{
 			boids[id] = new NetMobile(id);
@@ -287,4 +287,78 @@ function onBoidRemoved(data)
 function toggleDebug()
 {
 	debug = !debug;
+}
+
+// BOID CLIENT
+
+var myBoidStarted = false;
+function startMyBoid()
+{
+	if (myBoidStarted)
+	{
+		return;
+	}
+	myBoidStarted = true;
+	var config2 = Stormancer.Configuration.forAccount(accountId, applicationName);
+	var client2 = $.stormancer(config2);
+	var scene2 = null;
+	client2.getPublicScene(sceneName, "{ isObserver:false }").then(function(sc) {
+		scene2 = sc;
+		//scene2.registerRouteRaw("position.update", onBoidUpdate);
+		//scene2.registerRoute("ship.remove", onBoidRemoved);
+		//scene2.registerRoute("ship.add", onBoidAdded);
+		//scene2.registerRoute("clock", onClock);
+		scene2.registerRoute("ship.me", onMyBoid);
+		return scene2.connect().then(function() {
+			console.log("CONNECTED");
+			scene2.send("clock", Date.now());
+		});
+	});
+	var sendClock = new THREE.Clock();
+	function onMyBoid(boidInfos)
+	{
+		console.log("My boid:", boidInfos);
+		var id = boidInfos.id;
+		var boid = new NetMobile(id);
+		boids[id] = boid;
+		var x = boidInfos.x;
+		var y = boidInfos.y;
+		var rot = boidInfos.rot;
+		var lastX = 0;
+		var lastY = 0;
+		var packetIndex = 0;
+		var len = 20;
+		var time = 0;
+		setInterval(function() {
+			var time = clock.getElapsedTime();
+			lastX = x;
+			lastY = y;
+			x = len * Math.cos(time);
+			y = len * Math.sin(time);
+			var rot = Math.acos(x / len);
+			if (y < 0)
+			{
+				rot = 2*Math.PI - rot;
+			}
+			rot += Math.PI/2;
+			var buffer = new ArrayBuffer(22);
+			var dataView = new DataView(buffer);
+			dataView.setUint16(0, id, true);
+			dataView.setFloat32(2, x, true);
+			dataView.setFloat32(6, y, true);
+			dataView.setFloat32(10, rot, true);
+			dataView.setUint32(14, parseInt(time*1000), true);
+			dataView.setUint32(18, packetIndex, true);
+			packetIndex++;
+			scene2.sendPacket("position.update", new Uint8Array(buffer), Stormancer.PacketPriority.MEDIUM_PRIORITY, Stormancer.PacketReliability.RELIABLE_SEQUENCED);
+			/*boid.pushInterpData({
+				time: time,
+				position: new THREE.Vector3(x, y, 0),
+				orientation: (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), rot)
+			});*/
+			console.log("sent", sendClock.getDelta());
+		}, 200);
+		boid.root.position.set(x, y, 0);
+		boid.root.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rot);
+	}
 }

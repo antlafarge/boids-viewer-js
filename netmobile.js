@@ -64,7 +64,7 @@ NetMobile.prototype.updateInterp = function(delta, time)
 		i0 = this.interpData[i-1];
 	}
 
-	var timeTotal = (i1.time - i0.time);
+	var timeTotal = i1.time - i0.time;
 	var timePassed = Math.min(targetTime - i0.time, timeTotal + NetMobile.ex_interp);
 	var factor = Math.max(timePassed / timeTotal, 0);
 
