@@ -4,9 +4,8 @@ var accountId = "997bc6ac-9021-2ad6-139b-da63edee8c58";
 var applicationName = "boids";
 var sceneName = "main";
 
-var netAverageDelta = 0.2;
-var netDataCount = 0;
-var netDeltaClock = new THREE.Clock();
+var deltaReceiveAvg = new Average();
+var deltaReceiveClock = new THREE.Clock();
 var firstUpdateDataReceived = false;
 
 var canvas = document.querySelector("canvas");
@@ -15,7 +14,8 @@ var height = canvas.offsetHeight;
 var ctx = canvas.getContext('2d');
 var fontSize = 1;
 ctx.font = fontSize+"px serif";
-var clock = new THREE.Clock();
+var timer = new THREE.Clock();
+var renderDeltaClock = new THREE.Clock();
 var centerX = 0;
 var centerY = 0;
 
@@ -29,11 +29,12 @@ window.onload = main;
 var config = Stormancer.Configuration.forAccount(accountId, applicationName);
 var client = $.stormancer(config);
 var scene = null;
-client.getPublicScene(sceneName, "{ isObserver:true }").then(function(sc) {
+client.getPublicScene(sceneName, "{ isObserver:false }").then(function(sc) {
     scene = sc;
     scene.registerRouteRaw("position.update", onBoidUpdate);
     scene.registerRoute("ship.remove", onBoidRemoved);
     //scene.registerRoute("ship.add", onBoidAdded);
+	scene.registerRoute("ship.me", onMyBoid);
     //scene.registerRoute("clock", onClock);
     return scene.connect().then(function() {
         console.log("CONNECTED");
@@ -55,13 +56,13 @@ function requestRender()
 
 function render()
 {
-	var delta = clock.getDelta();
-	var time = clock.getElapsedTime();
+	var delta = renderDeltaClock.getDelta();
+	var time = timer.getElapsedTime();
 	clearCanvas();
 	if (debug)
 	{
 		drawOrigin();
-		drawBoidsAveragePoint();
+		//drawBoidsAveragePoint();
 	}
 	var euler = new THREE.Euler();
 	for (var id in boids)
@@ -77,6 +78,8 @@ function render()
 		}
 		placeBoid(id, x, y, rot, boid.ex, boid.desync);
 	}
+	$("#deltaRender").text(delta.toFixed(4)+"...");
+	$("#time").text(time.toFixed(4)+"...");
 }
 
 function onResize(event)
@@ -198,20 +201,24 @@ function onClock(dataView)
 	var lastTimestamp = dataView.getUint32();
 	var timestamp = Date.now();
 	var latency = (timestamp - lastTimestamp) / 2;
-	clock.elapsedTime = serverTime - latency;
-	console.log(serverTime, lastTimestamp, timestamp, latency, clock.elapsedTime);
+	timer.elapsedTime = serverTime - latency;
+	console.log(serverTime, lastTimestamp, timestamp, latency, timer.elapsedTime);
 */
 }
 
+Checker.addChecker("deltaReceive", 190, 210);
+Checker.addChecker("ping", 1, 400);
+
 function onBoidUpdate(dataView)
 {
-	var netDelta = netDeltaClock.getDelta();
-	var netTime = clock.getElapsedTime();
-	netDataCount++;
-	netAverageDelta = (netDataCount * netAverageDelta + netDelta) / (netDataCount + 1);
+	var deltaReceive = deltaReceiveClock.getDelta() * 1000;
+	var netTime = timer.getElapsedTime();
+	deltaReceiveAvg.push(deltaReceive);
+	$("#deltaReceive").text(deltaReceive.toFixed(4)+"...");
+	$("#deltaReceiveAvg").text(deltaReceiveAvg.value.toFixed(4)+"...");
 
 	var serverTime = dataView.getUint32(1, true) / 1000;
-	//var time = clock.getElapsedTime();
+	//var time = timer.getElapsedTime();
 	//var delay = time - serverTime;
 	//...
 	//console.log(serverTime);
@@ -231,6 +238,12 @@ function onBoidUpdate(dataView)
 		var rot = dataView.getFloat32(i+10, true);
 		time = dataView.getUint32(i+14, true) / 1000;
 		var seq = dataView.getUint32(i+18, true);
+		var ping;
+		if (ping = getPing(id, seq))
+		{
+			Checker.check("ping", ping);
+			$("#ping").text(ping.toFixed(4)+"...");
+		}
 		
 		var boid = boids[id];
 		boid.pushInterpData({
@@ -241,28 +254,17 @@ function onBoidUpdate(dataView)
 
 		if (boids[id].seq && boid.seq != seq - 1)
 		{
-			console.error((seq - boid.seq - 1) ,"packets lost, boid", id, ", previousSeq", boid.seq, ", currentSeq", seq, ", at time", (new Date()));
+			console.error((seq - boid.seq - 1) ,"packets missing, boid", id, ", previousSeq", boid.seq, ", currentSeq", seq, ", at time", (new Date()));
 		}
 		boid.seq = seq;
 	}
 	if (firstUpdateDataReceived === false)
 	{
-		clock.elapsedTime = time;
+		timer.elapsedTime = time;
 		firstUpdateDataReceived = true;
 	}
 
-	if (netDelta > NetMobile.ex_interp)
-	{
-		console.error("netDataCount", netDataCount, "\ttime", netTime, "\tdelta", netDelta, "\tnetAverageDelta", netAverageDelta, "\tboidsUpdated ", nbBoidsUpdated);
-	}
-	else if (netDelta > NetMobile.delay)
-	{
-		console.warn("netDataCount", netDataCount, "\ttime", netTime, "\tdelta", netDelta, "\tnetAverageDelta", netAverageDelta, "\tboidsUpdated ", nbBoidsUpdated);
-	}
-	else if (debug)
-	{
-		//console.log("netDataCount", netDataCount, "\ttime", netTime, "\tdelta", netDelta, "\tnetAverageDelta", netAverageDelta, "\tboidsUpdated ", nbBoidsUpdated);
-	}
+	Checker.check("deltaReceive", deltaReceive);
 }
 
 function onBoidAdded(data)
@@ -290,75 +292,94 @@ function toggleDebug()
 }
 
 // BOID CLIENT
-
+var myBoid = new NetMobile("me");
+myBoid.interp = false;
 var myBoidStarted = false;
+var packets = {};
+var id = null;
+function onMyBoid(boidInfos)
+{
+	if (boidInfos instanceof Array)
+	{
+		boidInfos.id = boidInfos[0];
+		boidInfos.x = boidInfos[1];
+		boidInfos.y = boidInfos[2];
+		boidInfos.rot = boidInfos[3];
+	}
+	
+	id = boidInfos.id;
+	var boid = new NetMobile(id);
+	boids[id] = boid;
+	packets[id] = {};
+	
+	if (myBoidStarted)
+	{
+		boid.root.position.set(boidInfos.x, boidInfos.y, 0);
+		boid.root.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), boidInfos.rot);
+	}
+}
+
 function startMyBoid()
 {
-	if (myBoidStarted)
+	if (!scene.connected || myBoidStarted)
 	{
 		return;
 	}
 	myBoidStarted = true;
-	var config2 = Stormancer.Configuration.forAccount(accountId, applicationName);
-	var client2 = $.stormancer(config2);
-	var scene2 = null;
-	client2.getPublicScene(sceneName, "{ isObserver:false }").then(function(sc) {
-		scene2 = sc;
-		//scene2.registerRouteRaw("position.update", onBoidUpdate);
-		//scene2.registerRoute("ship.remove", onBoidRemoved);
-		//scene2.registerRoute("ship.add", onBoidAdded);
-		//scene2.registerRoute("clock", onClock);
-		scene2.registerRoute("ship.me", onMyBoid);
-		return scene2.connect().then(function() {
-			console.log("CONNECTED");
-			scene2.send("clock", Date.now());
-		});
-	});
-	var sendClock = new THREE.Clock();
-	function onMyBoid(boidInfos)
+	
+	boids["me"] = myBoid;
+	
+	var packetIndex = 0;
+	var len = 20;
+	var time = 0;
+	var lastSend = performance.now();
+	Checker.addChecker("deltaSend", 190, 210);
+	var deltaSendAvg = new Average();
+	
+	setInterval(function() {
+		var time = timer.getElapsedTime();
+		var x = len * Math.cos(time);
+		var y = len * Math.sin(time);
+		var rot = Math.acos(x / len);
+		if (y < 0)
+		{
+			rot = 2*Math.PI - rot;
+		}
+		rot += Math.PI/2;
+		var buffer = new ArrayBuffer(22);
+		var dataView = new DataView(buffer);
+		dataView.setUint16(0, id, true);
+		dataView.setFloat32(2, x, true);
+		dataView.setFloat32(6, y, true);
+		dataView.setFloat32(10, rot, true);
+		dataView.setUint32(14, parseInt(time*1000), true);
+		dataView.setUint32(18, packetIndex, true);
+		packetIndex++;
+		
+		scene.sendPacket("position.update", new Uint8Array(buffer), Stormancer.PacketPriority.MEDIUM_PRIORITY, Stormancer.PacketReliability.RELIABLE_SEQUENCED);
+		myBoid.root.position.set(x, y, 0);
+		myBoid.root.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rot);
+		
+		var sendNow = performance.now();
+		var myBoiddeltaSend = (sendNow - lastSend);
+		deltaSendAvg.push(myBoiddeltaSend);
+		Checker.check("deltaSend", myBoiddeltaSend);
+		$("#deltaSend").text(myBoiddeltaSend.toFixed(4)+"...");
+		$("#deltaSendAvg").text(deltaSendAvg.value.toFixed(4)+"...");
+		lastSend = sendNow;
+		
+		packets[id][packetIndex] = sendNow;
+	}, 200);
+}
+
+function getPing(boidId, packetIndex)
+{
+	if (!packets || !packets[boidId] || !packets[boidId][packetIndex])
 	{
-		console.log("My boid:", boidInfos);
-		var id = boidInfos.id;
-		var boid = new NetMobile(id);
-		boids[id] = boid;
-		var x = boidInfos.x;
-		var y = boidInfos.y;
-		var rot = boidInfos.rot;
-		var lastX = 0;
-		var lastY = 0;
-		var packetIndex = 0;
-		var len = 20;
-		var time = 0;
-		setInterval(function() {
-			var time = clock.getElapsedTime();
-			lastX = x;
-			lastY = y;
-			x = len * Math.cos(time);
-			y = len * Math.sin(time);
-			var rot = Math.acos(x / len);
-			if (y < 0)
-			{
-				rot = 2*Math.PI - rot;
-			}
-			rot += Math.PI/2;
-			var buffer = new ArrayBuffer(22);
-			var dataView = new DataView(buffer);
-			dataView.setUint16(0, id, true);
-			dataView.setFloat32(2, x, true);
-			dataView.setFloat32(6, y, true);
-			dataView.setFloat32(10, rot, true);
-			dataView.setUint32(14, parseInt(time*1000), true);
-			dataView.setUint32(18, packetIndex, true);
-			packetIndex++;
-			scene2.sendPacket("position.update", new Uint8Array(buffer), Stormancer.PacketPriority.MEDIUM_PRIORITY, Stormancer.PacketReliability.RELIABLE_SEQUENCED);
-			/*boid.pushInterpData({
-				time: time,
-				position: new THREE.Vector3(x, y, 0),
-				orientation: (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), rot)
-			});*/
-			console.log("sent", sendClock.getDelta());
-		}, 200);
-		boid.root.position.set(x, y, 0);
-		boid.root.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rot);
+		return;
 	}
+	
+	var ping = (performance.now() - packets[boidId][packetIndex]);
+	delete packets[boidId][packetIndex];
+	return ping;
 }
