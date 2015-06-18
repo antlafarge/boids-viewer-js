@@ -5,29 +5,28 @@
 	<title>Boids</title>
 	<style>
 		html, body, canvas { margin:0; padding:0; width:100%; height:100%; overflow:hidden; }
-		.menu { position:absolute; top:0; left:0; padding:4px; background:#DDD; color:#007; border:1px solid #007; }
-		.bl { position:absolute; bottom:0; left:0; background:#DDD; color:#007; outline:1px solid #007; border-collapse:collapse; }
+		.bl { position:absolute; top:0; left:0; background:#DDD; color:#007; outline:1px solid #007; border-collapse:collapse; }
 		.bl th, .bl td { padding:2px 4px; border:1px solid #bbf; }
-		.numberFloat { text-align:left; }
-		.numberInt { text-align:right; }
+		.alignLeft, .numberFloat { text-align:left; }
+		.alignRight, .numberInt { text-align:right; }
 	</style>
 </head>
 
 <body>
 	<canvas></canvas>
-	<div class="menu">
-		<label><input type="checkbox" onclick="toggleDebug()" autocomplete="off"> Debug</label><br>
-		<button onclick="startMyBoid()">Start my boid</button>
-	</div>
+	
 	<table class="bl">
+		<tr><th><label for="debugCheckbox">debug</th><td><input id="debugCheckbox" type="checkbox" onclick="toggleDebug()" autocomplete="off"></td></tr>
+		<tr style="display:none;"><td colspan="2"><button onclick="startBoid()">Start boid</button></td></tr>
 		<tr><th>delta send</th><td id="deltaSend" class="numberFloat"></td></tr>
 		<tr><th>delta send avg</th><td id="deltaSendAvg" class="numberFloat"></td></tr>
 		<tr><th>delta receive</th><td id="deltaReceive" class="numberFloat"></td></tr>
 		<tr><th>delta receive avg</th><td id="deltaReceiveAvg" class="numberFloat"></td></tr>
+		<tr><th>ping</th><td id="ping" class="numberFloat"></td></tr>
 		<tr><th>delta render</th><td id="deltaRender" class="numberFloat"></td></tr>
 		<tr><th>time</th><td id="time" class="numberFloat"></td></tr>
-		<tr><th>ping</th><td id="ping" class="numberFloat"></td></tr>
 	</table>
+	
 	<script src="libs/jquery-1.11.3.min.js"></script>
 	<script src="libs/three.min.js"></script>
 	<script src="libs/stormancer.js"></script>
