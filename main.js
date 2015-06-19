@@ -30,7 +30,7 @@ window.onresize = onResize;
 window.onload = main;
 
 Checker.addChecker("deltaReceive", 190, 210);
-Checker.addChecker("ping", 1, 350);
+Checker.addChecker("ping", 1, 500);
 
 var config;
 var client;
@@ -89,7 +89,6 @@ function render()
 		}
 		placeBoid(id, x, y, rot, boid.ex, boid.desync);
 	}
-	netgraph.render();
 	$("#deltaRender").text(delta.toFixed(4)+"...");
 	$("#time").text(time.toFixed(4)+"...");
 }
@@ -271,10 +270,7 @@ function onBoidUpdate(dataView)
 		{
 			Checker.check("ping", ping);
 			$("#ping").text(ping.toFixed(4)+"...");
-			netgraph.push({
-				size: dataView.byteLength,
-				ping: ping
-			});
+			netgraph.push(ping);
 		}
 		
 		var boid = boids[id];

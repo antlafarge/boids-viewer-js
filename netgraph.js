@@ -5,70 +5,86 @@ function NetGraph(elementId)
 	var fontSize = 1;
 	ctx.font = fontSize+"px serif";
 
-	this.frames = [];
-	this.maxFrameSize = 1;
-	this.maxPing = 1;
+	this.data = [];
+
+	this.min = +Infinity;
+	this.max = -Infinity;
+
+	this.canvasTmp = document.createElement("Canvas");
+	this.ctxTmp = this.canvasTmp.getContext('2d');
 }
 
 NetGraph.prototype.onresize = function()
 {
-	this.canvas.width = this.canvas.offsetWidth;
-	this.canvas.height = this.canvas.offsetHeight;
-	this.width = this.canvas.offsetWidth;
-	this.height = this.canvas.offsetHeight;
+	if (this.canvas.offsetWidth !== this.width || this.canvas.offsetHeight !== this.height)
+	{
+		this.width = this.canvas.offsetWidth;
+		this.height = this.canvas.offsetHeight;
+		this.canvas.width = this.width;
+		this.canvas.height = this.height;
+		this.canvasTmp.width = this.width;
+		this.canvasTmp.height = this.height;
+	}
+}
+
+NetGraph.prototype.push = function(data)
+{
+	this.data.push(data);
+
+	while (this.data.length > this.width)
+	{
+		this.data.shift();
+	}
+
+	var min = +Infinity;
+	var max = -Infinity;
+
+	for (var i = 0; i < this.data.length; i++)
+	{
+		var data = this.data[i];
+		if (data < min)
+		{
+			min = data;
+		}
+		if (data > max)
+		{
+			max = data;
+		}
+	}
+
+	var lastMax = this.max;
+	var changed = false;
+	if (min !== this.min || max != this.max)
+	{
+		changed = true;
+		this.min = min;
+		this.max = max;
+	}
+
+	this.ctx.restore();
+	this.ctx.save();
+
+	this.ctxTmp.clearRect(0, 0, this.canvasTmp.width, this.canvasTmp.height);
+	this.ctxTmp.drawImage(this.canvas, 0, 0);
+
+	this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+	this.ctx.save();
+	this.ctx.translate(1, 0);
+	if (changed)
+	{
+		this.ctx.scale(1, lastMax / this.max);
+	}
+	this.ctx.drawImage(this.canvasTmp, 0, 0);
+	this.ctx.restore();
+
 	this.ctx.translate(0.5, 0.5);
-}
-
-NetGraph.prototype.push = function(frame)
-{
-	this.frames.push(frame);
-
-	if (frame.ping > this.maxPing)
-	{
-		console.log(this.maxPing);
-	}
-	this.maxFrameSize = Math.max(frame.size, this.maxFrameSize);
-	this.maxPing = Math.max(frame.ping, this.maxPing);
-
-	while (this.frames.length > this.width)
-	{
-		this.frames.shift();
-	}
-}
-
-NetGraph.prototype.clear = function()
-{
-	this.ctx.clearRect(0, 0, this.width, this.height);
-}
-
-NetGraph.prototype.render = function()
-{
-	this.clear();
-
-	var length = this.frames.length;
-	var end = this.width - length;
-
-	this.ctx.lineWidth = 1;
-	this.ctx.strokeStyle = "#FF0000";
-
-	for (var i = 0; i < length; i++)
-	{
-		var frame = this.frames[i];
-		this.ctx.beginPath();
-		this.ctx.moveTo(end + i, parseInt(100 * frame.size / this.maxFrameSize));
-		this.ctx.lineTo(end + i, this.height - 1);
-		this.ctx.stroke();
-	}
-
+	this.ctx.scale(1, this.canvas.height / this.max);
+	
 	this.ctx.lineWidth = 1;
 	this.ctx.strokeStyle = "#00FF00";
-
-	for (var i = 0; i < length; i++)
-	{
-		var frame = this.frames[i];
-		this.ctx.beginPath();
-		this.ctx.moveTo(end + i, parseInt(100 * frame.ping / this.maxPing));
-		this.ctx.lineTo(end + i, this.height);
-		this.ctx.stroke();
-	}
+	this.ctx.beginPath();
+	this.ctx.moveTo(0, 0);
+	this.ctx.lineTo(0, data);
+	this.ctx.stroke();
 }
