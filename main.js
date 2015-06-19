@@ -8,7 +8,7 @@ var deltaReceiveAvg = new Average();
 var deltaReceiveClock = new THREE.Clock();
 var firstUpdateDataReceived = false;
 
-var canvas = document.querySelector("canvas");
+var canvas = document.querySelector("canvas#scene");
 var width = canvas.offsetWidth;
 var height = canvas.offsetHeight;
 var ctx = canvas.getContext('2d');
@@ -17,6 +17,7 @@ ctx.font = fontSize+"px serif";
 var timer = new THREE.Clock();
 var renderDeltaClock = new THREE.Clock();
 var center = new THREE.Vector3();
+var netgraph = new NetGraph("#netgraph");
 
 var myPackets = {};
 var myId;
@@ -88,6 +89,7 @@ function render()
 		}
 		placeBoid(id, x, y, rot, boid.ex, boid.desync);
 	}
+	netgraph.render();
 	$("#deltaRender").text(delta.toFixed(4)+"...");
 	$("#time").text(time.toFixed(4)+"...");
 }
@@ -100,6 +102,7 @@ function onResize(event)
 	height = canvas.offsetHeight;
 	ctx.translate(width/2, height/2);
 	ctx.scale(worldZoom, -worldZoom);
+	netgraph.onresize();
 }
 
 function clearCanvas()
@@ -268,6 +271,10 @@ function onBoidUpdate(dataView)
 		{
 			Checker.check("ping", ping);
 			$("#ping").text(ping.toFixed(4)+"...");
+			netgraph.push({
+				size: dataView.byteLength,
+				ping: ping
+			});
 		}
 		
 		var boid = boids[id];

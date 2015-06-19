@@ -4,7 +4,8 @@
 <head>
 	<title>Boids</title>
 	<style>
-		html, body, canvas { margin:0; padding:0; width:100%; height:100%; overflow:hidden; }
+		html, body, canvas#scene, canvas#netgraph { margin:0; padding:0; width:100%; height:100%; overflow:hidden; }
+		canvas#netgraph { height:100px; position:absolute; bottom:0; }
 		.bl { position:absolute; top:0; left:0; background:#DDD; color:#007; outline:1px solid #007; border-collapse:collapse; }
 		.bl th, .bl td { padding:2px 4px; border:1px solid #bbf; }
 		.alignLeft, .numberFloat { text-align:left; }
@@ -13,7 +14,8 @@
 </head>
 
 <body>
-	<canvas></canvas>
+	<canvas id="scene"></canvas>
+	<canvas id="netgraph"></canvas>
 	
 	<table class="bl">
 		<tr><th><label for="debugCheckbox">debug</th><td><input id="debugCheckbox" type="checkbox" onclick="toggleDebug()" autocomplete="off"></td></tr>
@@ -33,6 +35,7 @@
 	<script src="average.js"></script>
 	<script src="checker.js"></script>
 	<script src="netmobile.js"></script>
+	<script src="netgraph.js"></script>
 	<script src="main.js"></script>
 </body>
 
