@@ -235,6 +235,7 @@ function onBoidRemoved(data)
 	delete boids[id];
 }
 
+var lastPacketId;
 function onBoidUpdate(dataView)
 {
 	var deltaReceive = deltaReceiveClock.getDelta() * 1000;
@@ -242,13 +243,15 @@ function onBoidUpdate(dataView)
 	deltaReceiveAvg.push(deltaReceive);
 	$("#deltaReceive").text(deltaReceive.toFixed(4)+"...");
 	$("#deltaReceiveAvg").text(deltaReceiveAvg.value.toFixed(4)+"...");
+	//Checker.check("deltaReceive", deltaReceive);
 
+	var packetId = dataView.getUint8(0);
+	$("#packetId").text(packetId);
 	var serverTime = dataView.getUint32(1, true) / 1000;
 	//var time = timer.getElapsedTime();
 	//var delay = time - serverTime;
 	//...
 	//console.log(serverTime);
-	var nbBoidsUpdated = 0;
 	var time;
 	var startByte = 5;
 	var frameSize = 22;
@@ -263,10 +266,10 @@ function onBoidUpdate(dataView)
 		var y = dataView.getFloat32(i+6, true);
 		var rot = dataView.getFloat32(i+10, true);
 		time = dataView.getUint32(i+14, true) / 1000;
-		var packetId = dataView.getUint32(i+18, true);
+		var boidPacketId = dataView.getUint32(i+18, true);
 		
 		var ping;
-		if (ping = getPing(packetId))
+		if (ping = getPing(boidPacketId))
 		{
 			$("#ping").text(ping.toFixed(4)+"...");
 			netgraph.push(ping);
@@ -278,12 +281,6 @@ function onBoidUpdate(dataView)
 			position: new THREE.Vector3(x, y, 0),
 			orientation: (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), rot)
 		});
-
-		if (boids[id].packetId && boid.packetId != packetId - 1)
-		{
-			console.error((packetId - boid.packetId - 1) ,"packets missing, boid", id, ", previouspacketId", boid.packetId, ", currentpacketId", packetId, ", at time", (new Date()));
-		}
-		boid.packetId = packetId;
 	}
 	if (firstUpdateDataReceived === false)
 	{
@@ -291,7 +288,11 @@ function onBoidUpdate(dataView)
 		firstUpdateDataReceived = true;
 	}
 
-	//Checker.check("deltaReceive", deltaReceive);
+	if (lastPacketId && packetId != ((lastPacketId + 1) % 256))
+	{
+		console.error((packetId - lastPacketId - 1) ,"packets missing, previouspacketId", lastPacketId, ", currentpacketId", packetId, ", at time", (new Date()));
+	}
+	lastPacketId = packetId;
 }
 
 function onMyBoid(data)
@@ -402,18 +403,16 @@ function onMyBoid(data)
 
 		myPackets[packetId] = sendNow;
 
-		flock();
-
+		/*flock();
 		checkSpeed();
-
 		rot += dr;
 		var dt = deltaSend / 1000;
 		var dx = Math.cos(rot) * speed * dt;
 		var dy = Math.sin(rot) * speed * dt;
 		x = myBoid.root.position.x + dx;
-		y = myBoid.root.position.y + dy;
+		y = myBoid.root.position.y + dy;*/
 
-		/*var time2 = time + offset;
+		var time2 = time + offset;
 		x = len * Math.cos(time2);
 		y = len * Math.sin(time2);
 		rot = Math.acos(x / len);
@@ -421,7 +420,7 @@ function onMyBoid(data)
 		{
 			rot = 2*Math.PI - rot;
 		}
-		rot += Math.PI/2;*/
+		rot += Math.PI/2;
 		
 		buffer = new ArrayBuffer(packetSize);
 		dataView = new DataView(buffer);
