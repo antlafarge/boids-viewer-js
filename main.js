@@ -237,11 +237,11 @@ function onBoidRemoved(data)
 
 function onBoidUpdate(dataView)
 {
-	/*var deltaReceive = deltaReceiveClock.getDelta() * 1000;
+	var deltaReceive = deltaReceiveClock.getDelta() * 1000;
 	var netTime = timer.getElapsedTime();
 	deltaReceiveAvg.push(deltaReceive);
 	$("#deltaReceive").text(deltaReceive.toFixed(4)+"...");
-	$("#deltaReceiveAvg").text(deltaReceiveAvg.value.toFixed(4)+"...");*/
+	$("#deltaReceiveAvg").text(deltaReceiveAvg.value.toFixed(4)+"...");
 
 	var serverTime = dataView.getUint32(1, true) / 1000;
 	//var time = timer.getElapsedTime();
@@ -266,9 +266,8 @@ function onBoidUpdate(dataView)
 		var packetId = dataView.getUint32(i+18, true);
 		
 		var ping;
-		if (ping = getPing(id, packetId))
+		if (ping = getPing(packetId))
 		{
-			Checker.check("ping", ping);
 			$("#ping").text(ping.toFixed(4)+"...");
 			netgraph.push(ping);
 		}
@@ -292,7 +291,7 @@ function onBoidUpdate(dataView)
 		firstUpdateDataReceived = true;
 	}
 
-	Checker.check("deltaReceive", deltaReceive);
+	//Checker.check("deltaReceive", deltaReceive);
 }
 
 function onMyBoid(data)
@@ -307,15 +306,17 @@ function onMyBoid(data)
 	
 	console.log(data);
 	myId = data.id;
+	myBoid = new NetMobile(myId);
+	boids[myId] = myBoid;
 	
 	var id = data.id;
 	var packetId = 0;
 	var packetSize = 22;
 	var len = 20;
 	var time = 0;
-	var x = 0;
-	var y = 0;
-	var rot = 0;
+	var x = data.x;
+	var y = data.y;
+	var rot = data.rot;
 	var buffer;
 	var dataView;
 	
@@ -324,12 +325,95 @@ function onMyBoid(data)
 	var deltaSendAvg = new Average();
 	
 	var offset = (Math.random() * 2 * Math.PI);
-	
+
+	var speed = 25;
+	var drMax = Math.PI / 32;
+	var dr;
+	var space = 10;
+
+	function flock()
+	{
+		var dX = 0;
+		var dY = 0;
+
+		for (var i in boids)
+		{
+			var boid = boids[i];
+
+			var distance = myBoid.root.position.distanceTo(boid.root.position);
+
+			if (distance < space)
+			{
+				dX += (myBoid.root.position.x - boid.root.position.x);
+				dY += (myBoid.root.position.y - boid.root.position.y);
+			}
+			else
+			{
+				dX += ((boid.root.position.x - myBoid.root.position.x) * 0.05);
+				dY += ((boid.root.position.y - myBoid.root.position.y) * 0.05);
+			}
+		}
+
+		//var centerDistance = myBoid.root.position.length();
+
+		dX += (-myBoid.root.position.x * Math.abs(myBoid.root.position.x) * 0.05);
+		dY += (-myBoid.root.position.y * Math.abs(myBoid.root.position.y) * 0.05);
+
+		var tr = Math.atan2(dY, dX);
+
+		dr = tr - rot;
+
+		if (dr < -Math.PI)
+		{
+			dr += 2 * Math.PI;
+		}
+		else if (dr > Math.PI)
+		{
+			dr -= 2 * Math.PI;
+		}
+
+		dr *= 0.1;
+	}
+
+	function checkSpeed()
+	{
+		if (dr > drMax)
+		{
+			dr = drMax;
+		}
+		else if (dr < -drMax)
+		{
+			dr = -drMax;
+		}
+	}
+
 	setInterval(function() {
 		computeCenter();
 		
 		time = timer.getElapsedTime();
-		var time2 = time + offset;
+
+		var sendNow = performance.now();
+		var deltaSend = sendNow - lastSend;
+		deltaSendAvg.push(deltaSend);
+		Checker.check("deltaSend", deltaSend);
+		$("#deltaSend").text(deltaSend.toFixed(4)+"...");
+		$("#deltaSendAvg").text(deltaSendAvg.value.toFixed(4)+"...");
+		lastSend = sendNow;
+
+		myPackets[packetId] = sendNow;
+
+		flock();
+
+		checkSpeed();
+
+		rot += dr;
+		var dt = deltaSend / 1000;
+		var dx = Math.cos(rot) * speed * dt;
+		var dy = Math.sin(rot) * speed * dt;
+		x = myBoid.root.position.x + dx;
+		y = myBoid.root.position.y + dy;
+
+		/*var time2 = time + offset;
 		x = len * Math.cos(time2);
 		y = len * Math.sin(time2);
 		rot = Math.acos(x / len);
@@ -337,7 +421,7 @@ function onMyBoid(data)
 		{
 			rot = 2*Math.PI - rot;
 		}
-		rot += Math.PI/2;
+		rot += Math.PI/2;*/
 		
 		buffer = new ArrayBuffer(packetSize);
 		dataView = new DataView(buffer);
@@ -352,16 +436,6 @@ function onMyBoid(data)
 		packetId++;
 		
 		scene.sendPacket("position.update", new Uint8Array(buffer), Stormancer.PacketPriority.MEDIUM_PRIORITY, Stormancer.PacketReliability.RELIABLE_packetIdUENCED);
-		
-		var sendNow = performance.now();
-		var deltaSend = sendNow - lastSend;
-		deltaSendAvg.push(deltaSend);
-		Checker.check("deltaSend", deltaSend);
-		$("#deltaSend").text(deltaSend.toFixed(4)+"...");
-		$("#deltaSendAvg").text(deltaSendAvg.value.toFixed(4)+"...");
-		lastSend = sendNow;
-		
-		myPackets[packetId] = sendNow;
 	}, 200);
 }
 
@@ -391,9 +465,9 @@ function startBoid()
 	var worker = new Worker("workerBoid.js");
 }
 
-function getPing(boidId, packetId)
+function getPing(packetId)
 {
-	if (!myPackets || !myPackets[packetId])
+	if (!myPackets[packetId])
 	{
 		return;
 	}

@@ -2,6 +2,7 @@ function NetGraph(elementId)
 {
 	this.canvas = document.querySelector("canvas#netgraph");
 	this.ctx = this.canvas.getContext('2d');
+	this.ctx.imageSmoothingEnabled = false;
 	var fontSize = 1;
 	ctx.font = fontSize+"px serif";
 
