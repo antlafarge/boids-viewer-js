@@ -22,7 +22,8 @@ var netgraph = new NetGraph("#netgraph");
 var myPackets = {};
 var myId;
 
-var boids = {};
+var boids = [];
+var boidsMap = {};
 
 var worldZoom = 3;
 
@@ -43,13 +44,13 @@ function main()
 	
 	config = Stormancer.Configuration.forAccount(accountId, applicationName);
 	client = new Stormancer.Client(config);
-	client.getPublicScene(sceneName, "{isObserver:false}").then(function(sc) {
+	client.getPublicScene(sceneName, "{isObserver:true}").then(function(sc) {
 		scene = sc;
 		//scene.registerRoute("clock", onClock);
 		//scene.registerRoute("ship.add", onBoidAdded);
 		scene.registerRoute("ship.remove", onBoidRemoved);
 		scene.registerRouteRaw("position.update", onBoidUpdate);
-		scene.registerRoute("ship.me", onMyBoid);
+		//scene.registerRoute("ship.me", onMyBoid);
 		return scene.connect().then(function() {
 			console.log("CONNECTED");
 			scene.send("clock", Date.now());
@@ -76,9 +77,10 @@ function render()
 		//drawBoidsAveragePoint();
 	}
 	var euler = new THREE.Euler();
-	for (var id in boids)
+	var bsz = boids.length;
+	for (var i=0; i<bsz; i++)
 	{
-		var boid = boids[id];
+		var boid = boids[i];
 		boid.update(delta, time);
 		var x = boid.root.position.x;
 		var y = boid.root.position.y;
@@ -87,7 +89,7 @@ function render()
 		{
 			drawPoints(boid);
 		}
-		placeBoid(id, x, y, rot, boid.ex, boid.desync);
+		placeBoid(boid.id, x, y, rot, boid.ex, boid.desync);
 	}
 	$("#deltaRender").text(delta.toFixed(4)+"...");
 	$("#time").text(time.toFixed(4)+"...");
@@ -226,16 +228,26 @@ function onBoidAdded(data)
 		orientation: (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), data.rot)
 	});
 	
-	boids[data.id] = boid;
+	boids.push(boid);
+	boidsMap[boid.id] = boid;
 }
 
 function onBoidRemoved(data)
 {
 	var id = data;
-	delete boids[id];
+	for (var i=0; i<boids.length; i++)
+	{
+		if (boids[i].id === id)
+		{
+			boids.splice(i, 1);
+			delete boidsMap[id];
+			$("#boidsCount").text(boids.length);
+			return;
+		}
+	}
 }
 
-var lastPacketId;
+var lastPacketId = 0;
 function onBoidUpdate(dataView)
 {
 	var deltaReceive = deltaReceiveClock.getDelta() * 1000;
@@ -258,9 +270,12 @@ function onBoidUpdate(dataView)
 	for (var i = startByte; dataView.byteLength - i >= frameSize; i += frameSize)
 	{
 		var id = dataView.getUint16(i, true);
-		if (!boids[id])
+		if (!boidsMap[id])
 		{
-			boids[id] = new NetMobile(id);
+			var boid = new NetMobile(id);
+			boidsMap[id] = boid;
+			boids.push(boid);
+			$("#boidsCount").text(boids.length);
 		}
 		var x = dataView.getFloat32(i+2, true);
 		var y = dataView.getFloat32(i+6, true);
@@ -268,14 +283,27 @@ function onBoidUpdate(dataView)
 		time = dataView.getUint32(i+14, true) / 1000;
 		var boidPacketId = dataView.getUint32(i+18, true);
 		
-		var ping;
-		if (ping = getPing(boidPacketId))
+		if (id === myId)
 		{
-			$("#ping").text(ping.toFixed(4)+"...");
-			netgraph.push(ping);
+			var packetIdTmp = lastPacketId;
+			do
+			{
+				var ping;
+				if (ping = getPing(boidPacketId))
+				{
+					$("#ping").text(ping.toFixed(4)+"...");
+					netgraph.push(ping);
+				}
+				else
+				{
+					$("#ping").text("0");
+					netgraph.push(0);	
+				}
+				packetIdTmp = (packetIdTmp + 1) % 256;
+			} while (packetIdTmp !== packetId);
 		}
 		
-		var boid = boids[id];
+		var boid = boidsMap[id];
 		boid.pushInterpData({
 			time: time,
 			position: new THREE.Vector3(x, y, 0),
@@ -308,7 +336,8 @@ function onMyBoid(data)
 	console.log(data);
 	myId = data.id;
 	myBoid = new NetMobile(myId);
-	boids[myId] = myBoid;
+	boidsMap[myId] = myBoid;
+	boids.push(myBoid);
 	
 	var id = data.id;
 	var packetId = 0;
@@ -337,7 +366,8 @@ function onMyBoid(data)
 		var dX = 0;
 		var dY = 0;
 
-		for (var i in boids)
+		var bsz = boids.length;
+		for (var i=0; i<bsz; i++)
 		{
 			var boid = boids[i];
 
@@ -438,22 +468,6 @@ function onMyBoid(data)
 	}, 200);
 }
 
-function computeCenter()
-{
-	center.set(0, 0, 0);
-	
-	var i = 0;
-	for (var b in boids)
-	{
-		var boid = boids[b];
-		center.x += boid.x;
-		center.y += boid.y;
-		i++;
-	}
-	
-	center.multiply(1/i);
-}
-
 function toggleDebug()
 {
 	debug = !debug;
@@ -480,10 +494,11 @@ function computeCenter()
 {
 	center.set(0, 0, 0);
 	
-	var i = 0;
-	for (var b in boids)
+	var i;
+	var bsz = boids.length;
+	for (i=0; i<bsz; i++)
 	{
-		var boid = boids[b];
+		var boid = boids[i];
 		center.x += boid.x;
 		center.y += boid.y;
 		i++;
