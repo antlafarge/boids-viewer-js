@@ -20,7 +20,7 @@ client.getPublicScene(sceneName, "{isObserver:false}").then(function(sc) {
     });
 });
 
-var boids = {};
+var boids = [];
 var firstUpdateDataReceived = false;
 var timer = new THREE.Clock();
 var renderDeltaClock = new THREE.Clock();
@@ -60,7 +60,16 @@ function onBoidAdded(data)
 function onBoidRemoved(data)
 {
 	var id = data;
-	delete boids[id];
+	for (var i=0; i<objects.length; i++)
+	{
+		if (objects[i].id === id)
+		{
+			objects.splice(i, 1);
+			delete boidsMap[id];
+			$("#boidsCount").text(boidsCount);
+			return;
+		}
+	}
 }
 
 function onBoidUpdate(dataView)
@@ -95,27 +104,128 @@ function onBoidUpdate(dataView)
 
 function onMyBoid(data)
 {
-	onBoidAdded(data);
+	if (data instanceof Array)
+	{
+		data.id = data[0];
+		data.rot = data[1];
+		data.x = data[2];
+		data.y = data[3];
+	}
 	
-	myBoid = boids[data.id];
+	console.log(data);
+	myId = data.id;
+	myBoid = new NetMobile(myId);
+	boidsMap[myId] = myBoid;
+	boids.push(myBoid);
 	
-	var id = myBoid.id;
-	var packetIndex = 0;
+	var id = data.id;
+	var packetId = 0;
 	var packetSize = 22;
-	var len = 50;
+	var len = 20;
 	var time = 0;
-	var x = 0;
-	var y = 0;
-	var rot = 0;
+	var x = data.x;
+	var y = data.y;
+	var rot = data.rot;
 	var buffer;
 	var dataView;
 	
+	var lastSend = performance.now();
+	Checker.addChecker("deltaSend", 190, 210);
+	var deltaSendAvg = new Average();
+	
+	var offset = (Math.random() * 2 * Math.PI);
+
+	var speed = 25;
+	var drMax = Math.PI / 32;
+	var dr;
+	var space = 10;
+
+	function flock()
+	{
+		var dX = 0;
+		var dY = 0;
+
+		var osz = objects.length;
+		for (var i=0; i<osz; i++)
+		{
+			var boid = objects[i];
+			if (boid instanceof Boid)
+			{
+				var distance = myBoid.root.position.distanceTo(boid.root.position);
+
+				if (distance < space)
+				{
+					dX += (myBoid.root.position.x - boid.root.position.x);
+					dY += (myBoid.root.position.y - boid.root.position.y);
+				}
+				else
+				{
+					dX += ((boid.root.position.x - myBoid.root.position.x) * 0.05);
+					dY += ((boid.root.position.y - myBoid.root.position.y) * 0.05);
+				}
+			}
+		}
+
+		//var centerDistance = myBoid.root.position.length();
+
+		dX += (-myBoid.root.position.x * Math.abs(myBoid.root.position.x) * 0.05);
+		dY += (-myBoid.root.position.y * Math.abs(myBoid.root.position.y) * 0.05);
+
+		var tr = Math.atan2(dY, dX);
+
+		dr = tr - rot;
+
+		if (dr < -Math.PI)
+		{
+			dr += 2 * Math.PI;
+		}
+		else if (dr > Math.PI)
+		{
+			dr -= 2 * Math.PI;
+		}
+
+		dr *= 0.1;
+	}
+
+	function checkSpeed()
+	{
+		if (dr > drMax)
+		{
+			dr = drMax;
+		}
+		else if (dr < -drMax)
+		{
+			dr = -drMax;
+		}
+	}
+
 	setInterval(function() {
 		computeCenter();
 		
 		time = timer.getElapsedTime();
-		x = len * Math.cos(time);
-		y = len * Math.sin(time);
+
+		var sendNow = performance.now();
+		var deltaSend = sendNow - lastSend;
+		deltaSendAvg.push(deltaSend);
+		Checker.check("deltaSend", deltaSend);
+		$("#deltaSend").text(deltaSend.toFixed(4)+"...");
+		$("#deltaSendAvg").text(deltaSendAvg.value.toFixed(4)+"...");
+		lastSend = sendNow;
+
+		myPackets[packetId] = sendNow;
+
+		/*flock();
+		checkSpeed();
+		rot += dr;
+		var dt = deltaSend / 1000;
+		var dx = Math.cos(rot) * speed * dt;
+		var dy = Math.sin(rot) * speed * dt;
+		x = myBoid.root.position.x + dx;
+		y = myBoid.root.position.y + dy;*/
+
+		var time2 = time + offset;
+		x = len * Math.cos(time2);
+		y = len * Math.sin(time2);
 		rot = Math.acos(x / len);
 		if (y < 0)
 		{
@@ -131,11 +241,11 @@ function onMyBoid(data)
 		dataView.setFloat32(6, y, true);
 		dataView.setFloat32(10, rot, true);
 		dataView.setUint32(14, parseInt(time*1000), true);
-		dataView.setUint32(18, packetIndex, true);
+		dataView.setUint32(18, packetId, true);
 		
-		packetIndex++;
+		packetId++;
 		
-		scene.sendPacket("position.update", new Uint8Array(buffer), Stormancer.PacketPriority.MEDIUM_PRIORITY, Stormancer.PacketReliability.RELIABLE_SEQUENCED);
+		scene.sendPacket("position.update", new Uint8Array(buffer), Stormancer.PacketPriority.MEDIUM_PRIORITY, Stormancer.PacketReliability.RELIABLE_packetIdUENCED);
 	}, 200);
 }
 
@@ -143,13 +253,17 @@ function computeCenter()
 {
 	center.set(0, 0, 0);
 	
-	var i = 0;
-	for (var b in boids)
+	var i;
+	var bsz = objects.length;
+	for (i=0; i<bsz; i++)
 	{
-		var boid = boids[b];
-		center.x += boid.x;
-		center.y += boid.y;
-		i++;
+		var object = boids[i];
+		if (object instanceof Boid)
+		{
+			center.x += object.x;
+			center.y += object.y;
+			i++;
+		}
 	}
 	
 	center.multiply(1/i);
