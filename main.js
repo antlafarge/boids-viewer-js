@@ -25,8 +25,9 @@ var myId;
 var objects = [];
 var boidsMap = {};
 var boidsCount = 0;
+var teams = [];
 
-var worldZoom = 3;
+var worldZoom = 6;
 
 window.onresize = onResize;
 window.onload = main;
@@ -38,8 +39,15 @@ var config;
 var client;
 var scene;
 
+function toggleDebugInfos()
+{
+	$("table.bl").toggle();
+}
+
 function main()
 {
+	toggleDebugInfos();
+
 	onResize();
 	requestRender();
 	
@@ -57,6 +65,12 @@ function main()
 			scene.send("clock", Date.now());
 		});
 	});
+
+	teams.push({id:0, color:"#EEEEEE", boids:[]});
+	teams.push({id:1, color:"#DD0000", boids:[]});
+	teams.push({id:2, color:"#5555FF", boids:[]});
+	teams.push({id:3, color:"#00AA00", boids:[]});
+	teams.push({id:4, color:"#CCCC00", boids:[]});
 }
 
 function requestRender()
@@ -161,19 +175,16 @@ function onBoidAdded(data)
 		data.x = data[2];
 		data.y = data[3];
 	}
-	
-	var boid = new Boid(data.id);
-	
-	boid.netMobile.pushInterpData({
-		time: data.time,
-		position: new THREE.Vector3(data.x, data.y, 0),
-		orientation: (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), data.rot)
-	});
-	
-	boidsMap[boid.id] = boid;
-	objects.push(boid);
+	data.team = randomInt(0, teams.length-1);
 
+	var boid = new Boid(data.id, data.team);
+	boidsMap[data.id] = boid;
+	assignTeam(data.id, data.team);
+	
 	boidsCount++;
+	$("#boidsCount").text(boidsCount);
+
+	objects.push(boid);
 }
 
 function onBoidRemoved(data)
@@ -216,11 +227,13 @@ function onBoidUpdate(dataView)
 		var id = dataView.getUint16(i, true);
 		if (!boidsMap[id])
 		{
-			var boid = new Boid(id);
-			boidsMap[id] = boid;
-			objects.push(boid);
-			boidsCount++;
-			$("#boidsCount").text(boidsCount);
+			onBoidAdded({
+				id:id,
+				rot:0,
+				x:0,
+				y:0,
+				team:randomInt(0, teams.length-1)
+			});
 		}
 		var x = dataView.getFloat32(i+2, true);
 		var y = dataView.getFloat32(i+6, true);
@@ -322,36 +335,22 @@ function createExplosion(boidId, radiusMax)
 function shootLazer(boidId, targetId)
 {
 	var boid = boidsMap[boidId];
-	var position = new THREE.Vector3(boid.netMobile.root.position.x, boid.netMobile.root.position.y);
 	var target = boidsMap[targetId];
-	var targetPosition = new THREE.Vector3(target.netMobile.root.position.x, target.netMobile.root.position.y)
-	var lazer = new Lazer(position, targetPosition);
+	var lazer = new Lazer(boid.netMobile.root.position, target.netMobile.root.position);
 	objects.push(lazer);
 }
 
-function shootMissile(boidId, targetId)
+function shootMissile(boidId, targetId, hit)
 {
 	var boid = boidsMap[boidId];
-	var position = new THREE.Vector3(boid.netMobile.root.position.x, boid.netMobile.root.position.y);
 	var target = boidsMap[targetId];
-	var targetPosition = target.netMobile.root.position;
-	var missile = new Missile(position, targetPosition, targetId);
+	var missile = new Missile(boid.netMobile.root.position, target.netMobile.root.position, targetId, hit, function(){createExplosion(targetId,2);});
 	objects.push(missile);
-}
-
-function missileEnd(targetId)
-{
-	var r = Math.random()
-	if (r > 0.2)
-	{
-		createExplosion(targetId, 5);
-		return true;
-	}
 }
 
 function randomBoid()
 {
-	var r = Math.floor(Math.random()*(boidsCount-1));
+	var r = randomInt(0, boidsCount-1);
 	var i = 0;
 	for (var b in boidsMap)
 	{
@@ -363,20 +362,52 @@ function randomBoid()
 	}
 }
 
-setInterval(function(){
-	var b1 = randomBoid().id;
-	var b2;
-	while ((b2 = randomBoid().id) === b1);
-	if (Math.random() > 0.5)
+function randomInt(min, max)
+{
+	return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function assignTeam(boidId, teamId)
+{
+	var boid = boidsMap[boidId];
+	var team = teams[teamId];
+	team.boids.push(boidId);
+	boid.team = team;
+}
+
+function unassignTeam(boidId)
+{
+	var boid = boidsMap[boidId];
+	var team = boid.team;
+	var teamId = team.id;
+
+	boid.team = null;
+	for (var i=0; i<team.boids.length; i++)
 	{
-		shootLazer(b1, b2);
-		if (Math.random() > 0.25)
+		if (team.boids[i] === boidId)
 		{
-			createExplosion(b2, 3);
+			team.boids.splice(i, 1);
+			break;
 		}
 	}
-	else
+}
+
+setInterval(function(){
+	var b1 = (b1 = randomBoid()) && (b1 = b1.id);
+	var b2 = (b2 = randomBoid()) && (b2 = b2.id);
+	if (b1 !== b2)
 	{
-		shootMissile(b2, b1);
+		if (Math.random() > 0.5)
+		{
+			shootLazer(b1, b2);
+			if (Math.random() > 0.1)
+			{
+				createExplosion(b2, 1);
+			}
+		}
+		else
+		{
+			shootMissile(b2, b1, (Math.random()>0.3?true:false));
+		}
 	}
 }, 1000);

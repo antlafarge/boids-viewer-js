@@ -9,12 +9,19 @@
 		.bl th, .bl td { padding:2px 4px; border:1px solid #bbf; }
 		.alignLeft { text-align:left; }
 		.alignRight, .numberInt, .numberFloat { text-align:right; }
+		div.title { position:absolute; top:0; width:100%; color:#fff; text-align:center; font-size:300%; }
+		div.title>a { text-decoration:none; color:white; }
+		div.title>a:hover { text-decoration:underline; }
+		div.boidsCount { position:absolute; bottom:16px; right:16px; color:#fff; font-size:200%; }
 	</style>
 </head>
 
 <body>
 	<canvas id="scene"></canvas>
 	<canvas id="netgraph"></canvas>
+
+	<div class="title"><a href="http://www.stormancer.com">Stormancer.com</a> - Network demo</div>
+	<div class="boidsCount"><span id="boidsCount">0</span> boids</div>
 	
 	<table class="bl">
 		<tr><th><label for="debugCheckbox">debug</th><td><input id="debugCheckbox" type="checkbox" onclick="toggleDebug()" autocomplete="off"></td></tr>
@@ -22,8 +29,8 @@
 		<tr><th class="alignLeft">boids count</th><td id="boidsCount" class="numberInt"></td></tr>
 		<!--<tr><th class="alignLeft">delta send</th><td id="deltaSend" class="numberFloat"></td></tr>-->
 		<!--<tr><th class="alignLeft">delta send avg</th><td id="deltaSendAvg" class="numberFloat"></td></tr>-->
-		<tr><th class="alignLeft">delta receive</th><td id="deltaReceive" class="numberFloat"></td></tr>
-		<tr><th class="alignLeft">delta receive avg</th><td id="deltaReceiveAvg" class="numberFloat"></td></tr>
+		<!--<tr><th class="alignLeft">delta receive</th><td id="deltaReceive" class="numberFloat"></td></tr>-->
+		<!--<tr><th class="alignLeft">delta receive avg</th><td id="deltaReceiveAvg" class="numberFloat"></td></tr>-->
 		<!--<tr><th class="alignLeft">ping</th><td id="ping" class="numberFloat"></td></tr>-->
 		<tr><th class="alignLeft">delta render</th><td id="deltaRender" class="numberFloat"></td></tr>
 		<tr><th class="alignLeft">time</th><td id="time" class="numberFloat"></td></tr>

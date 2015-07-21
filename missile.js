@@ -1,35 +1,45 @@
-function Missile(position, targetRef, targetId)
+function Missile(position, targetRef, targetId, hit, hitCallback)
 {
 	this.position = position.clone();
 	this.targetRef = targetRef;
 	this.disappear = false;
-	this.offset = this.position.clone();
 	this.lost = false;
 	this.lostTime = 10000;
 	this.speed = 32;
 	this.targetId = targetId;
+	this.hit = hit;
+	this.offset = position.clone();
+	this.lastOffset = position.clone();
+	this.hitCallback = hitCallback;
 }
 
 Missile.prototype.update = function(delta, time)
 {
 	if (!this.lost)
 	{
+		this.lastOffset.copy(this.offset);
 		this.offset = this.offset.copy(this.targetRef).sub(this.position);
 		var length = this.offset.length();
 		this.offset.normalize().multiplyScalar(this.speed*delta);
-		this.position.add(this.offset);
-		if (length < 2)
+		var length2 = this.offset.length();
+		if (length > length2)
+		{
+			this.position.add(this.offset);
+		}
+		else
 		{
 			this.lost = true;
-			if (missileEnd(this.targetId))
+			this.lastOffset.normalize();
+			if (this.hit)
 			{
+				this.hitCallback();
 				return true;
 			}
 		}
 	}
 	else
 	{
-		this.position.add(this.offset.normalize().multiplyScalar(this.speed*delta));
+		this.position.add(this.offset.copy(this.lastOffset).multiplyScalar(this.speed*delta));
 		this.lostTime -= delta;
 		if (this.lostTime < 0)
 		{

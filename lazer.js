@@ -1,8 +1,7 @@
 function Lazer(position, target)
 {
-	var rel = target.sub(position);
 	this.position = position.clone();
-	this.target = position.clone().add(rel.normalize().multiplyScalar(1000));
+	this.target = target.clone().sub(position).normalize().multiplyScalar(1000).add(position);
 	this.disappear = false;
 	this.rot = 0;
 	this.alpha = 0;

@@ -1,8 +1,10 @@
-function Boid(id)
+function Boid(id, teamId)
 {
 	this.id = id;
 	this.netMobile = new NetMobile(id);
 	this._euler = new THREE.Euler();
+	this.teamId = teamId;
+	this.team = null;
 }
 
 Boid.prototype.update = function(delta, time)
@@ -46,7 +48,7 @@ Boid.prototype.draw = function()
 	}
 	else
 	{
-		ctx.fillStyle = "#DDDDDD";
+		ctx.fillStyle = (this.team && this.team.color) || "#EEEEEE";
 	}
 	ctx.fill();
 /*
