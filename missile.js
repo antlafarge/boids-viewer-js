@@ -51,6 +51,6 @@ Missile.prototype.update = function(delta, time)
 Missile.prototype.draw = function()
 {
 	var dotSize = 1;
-	ctx.fillStyle = "#777777";
+	ctx.fillStyle = "#FFFFFF";
 	ctx.fillRect(this.position.x, this.position.y, dotSize, dotSize);
 };
