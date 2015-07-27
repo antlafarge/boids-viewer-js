@@ -18,6 +18,7 @@ var timer = new THREE.Clock();
 var renderDeltaClock = new THREE.Clock();
 var center = new THREE.Vector3();
 var netgraph = new NetGraph("#netgraph");
+var cameraPosition = {x:0, y:0};
 
 var myPackets = {};
 var myId;
@@ -55,22 +56,20 @@ function main()
 	client = new Stormancer.Client(config);
 	client.getPublicScene(sceneName, "{isObserver:true}").then(function(sc) {
 		scene = sc;
-		//scene.registerRoute("clock", onClock);
 		//scene.registerRoute("ship.add", onBoidAdded);
 		scene.registerRoute("ship.remove", onBoidRemoved);
 		scene.registerRouteRaw("position.update", onBoidUpdate);
 		//scene.registerRoute("ship.me", onMyBoid);
 		return scene.connect().then(function() {
 			console.log("CONNECTED");
-			scene.send("clock", Date.now());
+			setInterval(syncClock, 1000);
 		});
 	});
 
-	teams.push({id:0, color:"#EEEEEE", boids:[]});
-	teams.push({id:1, color:"#DD0000", boids:[]});
-	teams.push({id:2, color:"#5555FF", boids:[]});
-	teams.push({id:3, color:"#00AA00", boids:[]});
-	teams.push({id:4, color:"#CCCC00", boids:[]});
+	teams.push({id:0, color:"#D00", boids:[]});
+	teams.push({id:1, color:"#0BF", boids:[]});
+	teams.push({id:3, color:"#DD0", boids:[]});
+	teams.push({id:2, color:"#3D3", boids:[]});
 }
 
 function requestRender()
@@ -83,12 +82,27 @@ function render()
 {
 	var delta = renderDeltaClock.getDelta();
 	var time = timer.getElapsedTime();
-	clearCanvas();
-	if (debug)
+	if (kbMoveLeft)
 	{
-		drawOrigin();
-		//drawBoidsAveragePoint();
+		cameraPosition.x += (delta * kbSens);
 	}
+	if (kbMoveRight)
+	{
+		cameraPosition.x += (-delta * kbSens);
+	}
+	if (kbMoveUp)
+	{
+		cameraPosition.y += (-delta * kbSens);
+	}
+	if (kbMoveDown)
+	{
+		cameraPosition.y += (delta * kbSens);
+	}
+	clearCanvas();
+	ctx.save();
+	ctx.translate(cameraPosition.x, cameraPosition.y);
+	drawOrigin();
+	drawBoidsAveragePoint();
 	var osz = objects.length;
 	for (var i=0; i<osz; i++)
 	{
@@ -106,6 +120,7 @@ function render()
 	}
 	$("#deltaRender").text(delta.toFixed(4)+"...");
 	$("#time").text(time.toFixed(4)+"...");
+	ctx.restore();
 }
 
 function onResize(event)
@@ -121,28 +136,16 @@ function onResize(event)
 
 function clearCanvas()
 {
-	ctx.fillStyle = "#000022";
+	ctx.fillStyle = "#003";
 	ctx.fillRect(-width/2, -height/2, width, height);
 }
 
 function drawOrigin()
 {
-	var originSize = 0.5;
+	var originSize = 1;
 
-	/*ctx.fillStyle = "#777777";
-	ctx.fillRect(0, 0, originSize, originSize);*/
-
-	ctx.strokeStyle = "#777777";
-	
-	ctx.beginPath();
-	ctx.moveTo(-originSize, 0);
-	ctx.lineTo(+originSize, 0);
-	ctx.stroke();
-
-	ctx.beginPath();
-	ctx.moveTo(0, -originSize);
-	ctx.lineTo(0, +originSize);
-	ctx.stroke();
+	ctx.fillStyle = "#FFF";
+	ctx.fillRect(0, 0, originSize, originSize);
 }
 
 function drawBoidsAveragePoint()
@@ -154,16 +157,10 @@ function drawBoidsAveragePoint()
 	ctx.fillRect(center.x, center.y, dotSize, dotSize);
 }
 
-function onClock(dataView)
+function syncClock()
 {
-/*
-	var serverTime = dataView.getUint32();
-	var lastTimestamp = dataView.getUint32();
-	var timestamp = Date.now();
-	var latency = (timestamp - lastTimestamp) / 2;
-	timer.elapsedTime = serverTime - latency;
-	console.log(serverTime, lastTimestamp, timestamp, latency, timer.elapsedTime);
-*/
+	timer.elapsedTime = client.clock();
+	console.log("serverClock", timer.elapsedTime);
 }
 
 function onBoidAdded(data)
@@ -202,26 +199,10 @@ function onBoidRemoved(data)
 	}
 }
 
-var lastPacketId = 0;
+var startByte = 5;
+var frameSize = 22;
 function onBoidUpdate(dataView)
 {
-	//var deltaReceive = deltaReceiveClock.getDelta() * 1000;
-	//var netTime = timer.getElapsedTime();
-	//deltaReceiveAvg.push(deltaReceive);
-	//$("#deltaReceive").text(deltaReceive.toFixed(4)+"...");
-	//$("#deltaReceiveAvg").text(deltaReceiveAvg.value.toFixed(4)+"...");
-	//Checker.check("deltaReceive", deltaReceive);
-
-	//var packetId = dataView.getUint8(0);
-	//$("#packetId").text(packetId);
-	var serverTime = dataView.getUint32(1, true) / 1000;
-	//var time = timer.getElapsedTime();
-	//var delay = time - serverTime;
-	//...
-	//console.log(serverTime);
-	var time;
-	var startByte = 5;
-	var frameSize = 22;
 	for (var i = startByte; dataView.byteLength - i >= frameSize; i += frameSize)
 	{
 		var id = dataView.getUint16(i, true);
@@ -238,28 +219,8 @@ function onBoidUpdate(dataView)
 		var x = dataView.getFloat32(i+2, true);
 		var y = dataView.getFloat32(i+6, true);
 		var rot = dataView.getFloat32(i+10, true);
-		time = dataView.getUint32(i+14, true) / 1000;
-		var boidPacketId = dataView.getUint32(i+18, true);
-		
-		if (id === myId)
-		{
-			var packetIdTmp = lastPacketId;
-			do
-			{
-				var ping;
-				if (ping = getPing(boidPacketId))
-				{
-					$("#ping").text(ping.toFixed(4)+"...");
-					netgraph.push(ping);
-				}
-				else
-				{
-					$("#ping").text("0");
-					netgraph.push(0);	
-				}
-				packetIdTmp = (packetIdTmp + 1) % 256;
-			} while (packetIdTmp !== packetId);
-		}
+		var time = getUint64(dataView, i+14, true) / 1000;
+		console.log("time", time)
 		
 		var boid = boidsMap[id];
 		boid.netMobile.pushInterpData({
@@ -268,17 +229,111 @@ function onBoidUpdate(dataView)
 			orientation: (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), rot)
 		});
 	}
-	if (firstUpdateDataReceived === false)
-	{
-		timer.elapsedTime = time;
-		firstUpdateDataReceived = true;
-	}
+}
 
-	//if (lastPacketId && packetId != ((lastPacketId + 1) % 256))
-	//{
-	//	console.error((packetId - lastPacketId - 1) ,"packets missing, previouspacketId", lastPacketId, ", currentpacketId", packetId, ", at time", (new Date()));
-	//}
-	//lastPacketId = packetId;
+var lastMouseX;
+var lastMouseY;
+var mouseSens = 0.2;
+window.onmousemove = function(e)
+{
+	if (mouseHold)
+	{
+		var mouseX = e.offsetX;
+		var mouseY = e.offsetY;
+		var relativeX = (mouseX - lastMouseX) * mouseSens;
+		var relativeY = -(mouseY - lastMouseY) * mouseSens;
+		cameraPosition.x += relativeX;
+		cameraPosition.y += relativeY;
+		lastMouseX = mouseX;
+		lastMouseY = mouseY;
+	}
+};
+
+var mouseHold = false;
+window.onmousedown = function(e)
+{
+	mouseHold = true;
+	lastMouseX = e.offsetX;
+	lastMouseY = e.offsetY;
+};
+window.onmouseup = function(e)
+{
+	mouseHold = false;
+};
+
+var kbMoveLeft = false;
+var kbMoveRight = false;
+var kbMoveUp = false;
+var kbMoveDown = false;
+var kbSens = 20;
+window.onkeydown = function(e)
+{
+	if (e.which === 38)
+	{
+		kbMoveUp = true;
+	}
+	else if (e.which === 40)
+	{
+		kbMoveDown = true;
+	}
+	else if (e.which === 37)
+	{
+		kbMoveLeft = true;
+	}
+	else if (e.which === 39)
+	{
+		kbMoveRight = true;
+	}
+};
+window.onkeyup = function(e)
+{
+	if (e.which === 38)
+	{
+		kbMoveUp = false;
+	}
+	else if (e.which === 40)
+	{
+		kbMoveDown = false;
+	}
+	else if (e.which === 37)
+	{
+		kbMoveLeft = false;
+	}
+	else if (e.which === 39)
+	{
+		kbMoveRight = false;
+	}
+};
+
+canvas.addEventListener("touchstart", touchstart);
+canvas.addEventListener("touchend", touchend);
+canvas.addEventListener("touchcancel", touchcancel);
+canvas.addEventListener("touchleave", touchleave);
+canvas.addEventListener("touchmove", touchmove);
+
+function touchstart(e)
+{
+
+}
+
+function touchend(e)
+{
+
+}
+
+function touchcancel(e)
+{
+
+}
+
+function touchleave(e)
+{
+
+}
+
+function touchmove(e)
+{
+
 }
 
 function toggleDebug()
@@ -307,20 +362,20 @@ function computeCenter()
 {
 	center.set(0, 0, 0);
 	
-	var i;
+	var j = 0;
 	var bsz = objects.length;
 	for (i=0; i<bsz; i++)
 	{
-		var object = boids[i];
+		var object = objects[i];
 		if (object instanceof Boid)
 		{
-			center.x += object.x;
-			center.y += object.y;
-			i++;
+			center.x += object.netMobile.root.position.x;
+			center.y += object.netMobile.root.position.z;
+			j++;
 		}
 	}
-	
-	center.multiply(1/i);
+
+	center.multiplyScalar(1/(j||1));
 }
 
 function createExplosion(boidId, radiusMax)
@@ -330,22 +385,57 @@ function createExplosion(boidId, radiusMax)
 	explosion.x = boid.netMobile.root.position.x;
 	explosion.y = boid.netMobile.root.position.y;
 	objects.push(explosion);
+	return explosion;
 }
 
-function shootLazer(boidId, targetId)
+function shootLazer(boidId, targetId, hit)
 {
 	var boid = boidsMap[boidId];
 	var target = boidsMap[targetId];
 	var lazer = new Lazer(boid.netMobile.root.position, target.netMobile.root.position);
 	objects.push(lazer);
+	if (hit)
+	{
+		hitLazer(targetId);
+	}
+	return lazer;
+}
+
+function hitLazer(boidId)
+{
+	var boid = boidsMap[boidId];
+	boid.life = Math.max(boid.life - 0.25, 0);
+	if (boid.life == 0)
+	{
+		boidDie(boidId);
+	}
+	else
+	{
+		createExplosion(boidId, 1);
+	}
 }
 
 function shootMissile(boidId, targetId, hit)
 {
 	var boid = boidsMap[boidId];
 	var target = boidsMap[targetId];
-	var missile = new Missile(boid.netMobile.root.position, target.netMobile.root.position, targetId, hit, function(){createExplosion(targetId,2);});
+	var missile = new Missile(boid.netMobile.root.position, target.netMobile.root.position, targetId, hit, function(){hitMissile(targetId);});
 	objects.push(missile);
+	return missile;
+}
+
+function hitMissile(boidId)
+{
+	var boid = boidsMap[boidId];
+	boid.life = Math.max(boid.life - 0.5, 0);
+	if (boid.life == 0)
+	{
+		boidDie(boidId);
+	}
+	else
+	{
+		createExplosion(boidId, 2);
+	}
 }
 
 function randomBoid()
@@ -365,6 +455,11 @@ function randomBoid()
 function randomInt(min, max)
 {
 	return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function randomHit(successRatio)
+{
+	return (Math.random()<successRatio ? true : false);
 }
 
 function assignTeam(boidId, teamId)
@@ -392,6 +487,13 @@ function unassignTeam(boidId)
 	}
 }
 
+function boidDie(boidId)
+{
+	var explosion = createExplosion(boidId, 3);
+	var boid = boidsMap[boidId];
+	explosion.color = boid.team.color;
+}
+
 setInterval(function(){
 	var b1 = (b1 = randomBoid()) && (b1 = b1.id);
 	var b2 = (b2 = randomBoid()) && (b2 = b2.id);
@@ -399,15 +501,21 @@ setInterval(function(){
 	{
 		if (Math.random() > 0.5)
 		{
-			shootLazer(b1, b2);
-			if (Math.random() > 0.1)
-			{
-				createExplosion(b2, 1);
-			}
+			shootLazer(b1, b2, randomHit(0.9));
 		}
 		else
 		{
-			shootMissile(b2, b1, (Math.random()>0.3?true:false));
+			shootMissile(b2, b1, randomHit(0.7));
 		}
 	}
 }, 1000);
+
+function getUint64(dataView, offset, littleEndian)
+{
+	var number = 0;
+	for (var i = 0; i < 8; i++)
+	{
+		number += (dataView.getUint8(offset+i) * Math.pow(2, (littleEndian ? i : 7-i)*8));
+	}
+	return number;
+}

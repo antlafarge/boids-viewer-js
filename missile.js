@@ -4,7 +4,7 @@ function Missile(position, targetRef, targetId, hit, hitCallback)
 	this.targetRef = targetRef;
 	this.disappear = false;
 	this.lost = false;
-	this.lostTime = 10000;
+	this.lostTime = 5000;
 	this.speed = 32;
 	this.targetId = targetId;
 	this.hit = hit;

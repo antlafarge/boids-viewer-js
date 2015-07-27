@@ -31,10 +31,11 @@ Lazer.prototype.update = function(delta, time)
 Lazer.prototype.draw = function()
 {
 	ctx.lineWidth = 0.2;
-	ctx.strokeStyle = "rgba(255, 255, 255, "+this.alpha+")";
+	ctx.strokeStyle = "#FFF";
 	ctx.beginPath();
 	ctx.moveTo(this.position.x, this.position.y);
 	ctx.lineTo(this.target.x, this.target.y);
+	ctx.globalAlpha = this.alpha;
 	ctx.stroke();
-	ctx.restore();
+	ctx.globalAlpha = 1;
 };

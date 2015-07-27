@@ -5,6 +5,7 @@ function Boid(id, teamId)
 	this._euler = new THREE.Euler();
 	this.teamId = teamId;
 	this.team = null;
+	this.life = 1;
 }
 
 Boid.prototype.update = function(delta, time)
@@ -24,41 +25,23 @@ Boid.prototype.draw = function()
 
 	ctx.save();
 	ctx.translate(x, y);
-	ctx.rotate(rot);
-
 	ctx.scale(0.5, 0.5);
+
+	ctx.beginPath();
+	ctx.fillStyle = "#000";
+	ctx.fillRect(-5,5, 10,1);
+	ctx.strokeStyle = "#000";
+	ctx.strokeRect(-5,5, 10,1);
+	ctx.fillStyle = "#00FF00";
+	ctx.fillRect(-5,5, 10*this.life,1);
+
+	ctx.rotate(rot);
 	ctx.beginPath();
 	ctx.moveTo(-3, -2);
 	ctx.lineTo(-3, +2);
 	ctx.lineTo(+3, +0);
-	if (debug)
-	{
-		if (this.netMobile.desync)
-		{
-			ctx.fillStyle = "#FF0000";
-		}
-		else if (this.netMobile.ex)
-		{
-			ctx.fillStyle = "#FFFF00";
-		}
-		else
-		{
-			ctx.fillStyle = "#00DD00";
-		}
-	}
-	else
-	{
-		ctx.fillStyle = (this.team && this.team.color) || "#EEEEEE";
-	}
+	ctx.fillStyle = (this.team && this.team.color) || "#EEEEEE";
 	ctx.fill();
-/*
-	ctx.save();
-	ctx.scale(0.5, 0.5);
-	ctx.rotate(Math.PI / 2)
-	ctx.fillStyle = "#DDDDDD";
-	ctx.fillText(id, 0, 0);
-	ctx.restore();
-*/
 	ctx.restore();
 };
 

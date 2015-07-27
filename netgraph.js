@@ -13,6 +13,9 @@ function NetGraph(elementId)
 
 	this.canvasTmp = document.createElement("Canvas");
 	this.ctxTmp = this.canvasTmp.getContext('2d');
+
+	this.width = 0;
+	this.height = 0;
 }
 
 NetGraph.prototype.onresize = function()

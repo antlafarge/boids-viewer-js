@@ -6,6 +6,7 @@ function Explosion(radiusMax)
 	this.radiusMax = radiusMax || 5;
 	this.disappear = false;
 	this.alpha = 1;
+	this.color = "#FFF";
 }
 
 Explosion.prototype.update = function(delta, time)
@@ -33,7 +34,10 @@ Explosion.prototype.draw = function()
 {
 	ctx.beginPath();
 	ctx.arc(this.x, this.y, this.radius, 0, 2*Math.PI, false);
-	ctx.fillStyle = "rgba(255, 255, 255, "+this.alpha+")";
+	ctx.fillStyle = this.color;
+	//ctx.strokeStyle = "#000";
+	ctx.globalAlpha = this.alpha;
 	ctx.fill();
-	ctx.restore();
+	//ctx.stroke();
+	ctx.globalAlpha = 1;
 };
