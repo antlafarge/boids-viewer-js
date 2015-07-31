@@ -67,7 +67,7 @@ function main()
 	
 	config = Stormancer.Configuration.forAccount(accountId, applicationName);
 	client = new Stormancer.Client(config);
-	client.getPublicScene(sceneName, "{isObserver:true}").then(function(sc) {
+	client.getPublicScene(sceneName, {isObserver:true}).then(function(sc) {
 		scene = sc;
 		scene.registerRoute("ship.usedSkill", onUsedSkill);
 		scene.registerRoute("ship.statusChanged", onBoidStatusChanged);
