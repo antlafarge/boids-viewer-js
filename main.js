@@ -1,15 +1,32 @@
 var debug = false;
 
-var accountId = "997bc6ac-9021-2ad6-139b-da63edee8c58";
-var applicationName = "boids-test";
-var sceneName = "main";
+// STORMANCER PLUGIN SCRIPT STARTUP
+var urlParams;
+(window.onpopstate = function () {
+	var match,
+	pl = /\+/g,  // Regex for replacing addition symbol with a space
+	search = /([^&=]+)=?([^&]*)/g,
+	decode = function(s) { return decodeURIComponent(s.replace(pl, " ")); },
+	query = window.location.search.substring(1);
 
-if (window.location.href.indexOf("?localhost") !== -1 || window.location.href.indexOf("&localhost") !== -1)
+	urlParams = {};
+	while (match = search.exec(query))
+	{
+		urlParams[decode(match[1])] = decode(match[2]);
+	}
+})();
+var account = urlParams["account"] || "997bc6ac-9021-2ad6-139b-da63edee8c58";
+var app = urlParams["app"] || "boids-test";
+var scene = urlParams["scene"] || "main";
+var adminPluginId = urlParams["pluginId"];
+var xToken = urlParams["x-token"];
+
+if (window.location.href.split('/').pop().indexOf("?localhost") !== -1)
 {
 	Stormancer.Configuration.apiEndpoint = "http://localhost:8081";
-	accountId = "test";
-	applicationName = "boids";
-	sceneName = "main";
+	account = "test";
+	app = "boids";
+	scene = "main";
 }
 
 var deltaReceiveAvg = new Average();
@@ -36,7 +53,7 @@ var objects = [];
 var boidsMap = {};
 var boidsCount = 0;
 var teams = [];
-var teamColorsSet = ["#D00", "#0BF", "#DD0", "#3D3"];
+var teamColorsSet = ["#ed7f10", "#52f38c"];
 
 var worldZoom = 6;
 
@@ -58,15 +75,15 @@ function toggleDebugInfos()
 function main()
 {
 	//toggleDebugInfos();
-	toggleDebug();
+	//toggleDebug();
 	$("#debugCheckbox").prop('checked', true);
 
 	onResize();
 	requestRender();
 	
-	config = Stormancer.Configuration.forAccount(accountId, applicationName);
+	config = Stormancer.Configuration.forAccount(account, app);
 	client = new Stormancer.Client(config);
-	client.getPublicScene(sceneName, {isObserver:true}).then(function(sc) {
+	client.getPublicScene(scene, {isObserver:true}).then(function(sc) {
 		scene = sc;
 		scene.registerRoute("ship.usedSkill", onUsedSkill);
 		scene.registerRoute("ship.statusChanged", onBoidStatusChanged);
@@ -112,8 +129,11 @@ function render()
 	ctx.save();
 	ctx.scale(worldZoom, -worldZoom);
 	ctx.translate(cameraPosition.x, cameraPosition.y);
-	drawOrigin();
-	drawBoidsAveragePoint();
+	if (debug)
+	{
+		drawOrigin();
+		drawBoidsAveragePoint();
+	}
 	var osz = objects.length;
 	for (var i=0; i<osz; )
 	{
@@ -146,7 +166,7 @@ function onResize(event)
 
 function clearCanvas()
 {
-	ctx.fillStyle = "#003";
+	ctx.fillStyle = "#21427d";
 	ctx.fillRect(-width/2, -height/2, width, height);
 }
 
@@ -181,7 +201,7 @@ function syncClock()
 
 function onBoidAdded(dataArray)
 {
-	console.error("onBoidAdded!", dataArray)
+	console.log("onBoidAdded", dataArray)
 	for (var b = 0; b < dataArray.length; b++)
 	{
 		var data = dataArray[b];
@@ -205,7 +225,6 @@ function onBoidAdded(dataArray)
 				weapon.range = weapon[5];
 			}
 		}
-		console.log("onBoidAdded", data)
 
 		var boid = new Boid(data.id, data.team);
 		boid.data = data;
@@ -221,7 +240,7 @@ function onBoidAdded(dataArray)
 		}
 
 		boidsCount++;
-		$("#boidsCount").text(boidsCount);
+		showBoidsCount();
 	}
 }
 
@@ -242,7 +261,20 @@ function onBoidRemoved(data)
 	{
 		objects.splice(index, 1);
 		delete boidsMap[boidId];
-		$("#boidsCount").text(boidsCount);
+		showBoidsCount();
+	}
+}
+
+function showBoidsCount()
+{
+	$("#boidsCount").text(boidsCount);
+	if (boidsCount != 1)
+	{
+		$("#boidsCountS").show();
+	}
+	else
+	{
+		$("#boidsCountS").hide();
 	}
 }
 
