@@ -1,13 +1,23 @@
-function Lazer(position, target)
+function Laser(position, target, hit)
 {
 	this.position = position.clone();
-	this.target = target.clone().sub(position).normalize().multiplyScalar(1000).add(position);
+	this.target = target.clone();
+	if (hit)
+	{
+		this.target.sub(position).add(position);
+	}
+	else
+	{
+		var failFactor = 5;
+		var failVector = new THREE.Vector3((Math.random() - 0.5) * failFactor, (Math.random() - 0.5) * failFactor).normalize();
+		this.target.add(failVector).sub(position).normalize().multiplyScalar(1000).add(position);
+	}
 	this.disappear = false;
 	this.rot = 0;
 	this.alpha = 0;
 }
 
-Lazer.prototype.update = function(delta, time)
+Laser.prototype.update = function(delta, time)
 {
 	if (!this.disappear)
 	{
@@ -28,7 +38,7 @@ Lazer.prototype.update = function(delta, time)
 	}
 };
 
-Lazer.prototype.draw = function()
+Laser.prototype.draw = function()
 {
 	ctx.lineWidth = 0.2;
 	ctx.strokeStyle = "#FFF";

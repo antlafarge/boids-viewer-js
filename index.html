@@ -5,7 +5,7 @@
 	<title>Boids</title>
 	<style>
 		html, body, canvas#scene, canvas#netgraph { margin:0; padding:0; width:100%; height:100%; overflow:hidden; }
-		canvas#netgraph { width:100%; height:100px; position:absolute; bottom:0; right:0; transform: scale(-1, -1); image-rendering:pixelated; }
+		canvas#netgraph { display:none; width:100%; height:100px; position:absolute; bottom:0; right:0; transform: scale(-1, -1); image-rendering:pixelated; }
 		.bl { position:absolute; top:0; left:0; background:#DDD; color:#007; outline:1px solid #007; border-collapse:collapse; }
 		.bl th, .bl td { padding:2px 4px; border:1px solid #bbf; }
 		.alignLeft { text-align:left; }
@@ -27,7 +27,7 @@
 	<table class="bl">
 		<tr><th><label for="debugCheckbox">debug</th><td><input id="debugCheckbox" type="checkbox" onclick="toggleDebug()" autocomplete="off"></td></tr>
 		<tr style="display:none;"><td colspan="2"><button onclick="startBoid()">Start boid</button></td></tr>
-		<tr><th class="alignLeft">boids count</th><td id="boidsCount" class="numberInt"></td></tr>
+		<!--<tr><th class="alignLeft">boids count</th><td id="boidsCount" class="numberInt"></td></tr>-->
 		<!--<tr><th class="alignLeft">delta send</th><td id="deltaSend" class="numberFloat"></td></tr>-->
 		<!--<tr><th class="alignLeft">delta send avg</th><td id="deltaSendAvg" class="numberFloat"></td></tr>-->
 		<!--<tr><th class="alignLeft">delta receive</th><td id="deltaReceive" class="numberFloat"></td></tr>-->
@@ -47,7 +47,7 @@
 	<script src="netgraph.js"></script>
 	<script src="boid.js"></script>
 	<script src="explosion.js"></script>
-	<script src="lazer.js"></script>
+	<script src="laser.js"></script>
 	<script src="missile.js"></script>
 	<script src="main.js"></script>
 </body>

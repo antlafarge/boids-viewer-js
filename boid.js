@@ -1,11 +1,16 @@
 function Boid(id, teamId)
 {
 	this.id = id;
+	this.team = teamId;
+	this.pv = 1;
+	this.status = null;
+	this.weapons = [];
+	
+	this.data = null;
+
 	this.netMobile = new NetMobile(id);
 	this._euler = new THREE.Euler();
-	this.teamId = teamId;
-	this.team = null;
-	this.life = 1;
+	this.color = null;
 }
 
 Boid.prototype.update = function(delta, time)
@@ -33,14 +38,14 @@ Boid.prototype.draw = function()
 	ctx.strokeStyle = "#000";
 	ctx.strokeRect(-5,5, 10,1);
 	ctx.fillStyle = "#00FF00";
-	ctx.fillRect(-5,5, 10*this.life,1);
+	ctx.fillRect(-5,5, 10*this.pv,1);
 
 	ctx.rotate(rot);
 	ctx.beginPath();
 	ctx.moveTo(-3, -2);
 	ctx.lineTo(-3, +2);
 	ctx.lineTo(+3, +0);
-	ctx.fillStyle = (this.team && this.team.color) || "#EEEEEE";
+	ctx.fillStyle = (this.color || "#EEEEEE");
 	ctx.fill();
 	ctx.restore();
 };

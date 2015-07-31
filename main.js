@@ -1,7 +1,12 @@
 var debug = false;
 
+if (window.location.href.indexOf("localhost"))
+{
+	Stormancer.Configuration.apiEndpoint = "http://localhost:8081";
+}
+
 var accountId = "997bc6ac-9021-2ad6-139b-da63edee8c58";
-var applicationName = "boids";
+var applicationName = "boids-test";
 var sceneName = "main";
 
 var deltaReceiveAvg = new Average();
@@ -19,6 +24,7 @@ var renderDeltaClock = new THREE.Clock();
 var center = new THREE.Vector3();
 var netgraph = new NetGraph("#netgraph");
 var cameraPosition = {x:0, y:0};
+var maxPv = 50;
 
 var myPackets = {};
 var myId;
@@ -27,14 +33,15 @@ var objects = [];
 var boidsMap = {};
 var boidsCount = 0;
 var teams = [];
+var teamColorsSet = ["#D00", "#0BF", "#DD0", "#3D3"];
 
 var worldZoom = 6;
 
 window.onresize = onResize;
 window.onload = main;
 
-Checker.addChecker("deltaReceive", 190, 210);
-Checker.addChecker("ping", 1, 500);
+//Checker.addChecker("deltaReceive", 190, 210);
+//Checker.addChecker("ping", 1, 500);
 
 var config;
 var client;
@@ -47,7 +54,9 @@ function toggleDebugInfos()
 
 function main()
 {
-	toggleDebugInfos();
+	//toggleDebugInfos();
+	toggleDebug();
+	$("#debugCheckbox").prop('checked', true);
 
 	onResize();
 	requestRender();
@@ -56,8 +65,11 @@ function main()
 	client = new Stormancer.Client(config);
 	client.getPublicScene(sceneName, "{isObserver:true}").then(function(sc) {
 		scene = sc;
-		//scene.registerRoute("ship.add", onBoidAdded);
+		scene.registerRoute("ship.usedSkill", onUsedSkill);
+		scene.registerRoute("ship.statusChanged", onBoidStatusChanged);
+		scene.registerRoute("ship.add", onBoidAdded);
 		scene.registerRoute("ship.remove", onBoidRemoved);
+		scene.registerRouteRaw("ship.pv", onPv);
 		scene.registerRouteRaw("position.update", onBoidUpdate);
 		//scene.registerRoute("ship.me", onMyBoid);
 		return scene.connect().then(function() {
@@ -65,11 +77,6 @@ function main()
 			setInterval(syncClock, 1000);
 		});
 	});
-
-	teams.push({id:0, color:"#D00", boids:[]});
-	teams.push({id:1, color:"#0BF", boids:[]});
-	teams.push({id:3, color:"#DD0", boids:[]});
-	teams.push({id:2, color:"#3D3", boids:[]});
 }
 
 function requestRender()
@@ -100,22 +107,23 @@ function render()
 	}
 	clearCanvas();
 	ctx.save();
+	ctx.scale(worldZoom, -worldZoom);
 	ctx.translate(cameraPosition.x, cameraPosition.y);
 	drawOrigin();
 	drawBoidsAveragePoint();
 	var osz = objects.length;
-	for (var i=0; i<osz; i++)
+	for (var i=0; i<osz; )
 	{
 		var object = objects[i];
 		if (object.update(delta, time))
 		{
 			objects.splice(i, 1);
-			i--;
 			osz = objects.length;
 		}
 		else
 		{
 			object.draw();
+			i++
 		}
 	}
 	$("#deltaRender").text(delta.toFixed(4)+"...");
@@ -130,7 +138,6 @@ function onResize(event)
 	width = canvas.offsetWidth;
 	height = canvas.offsetHeight;
 	ctx.translate(width/2, height/2);
-	ctx.scale(worldZoom, -worldZoom);
 	netgraph.onresize();
 }
 
@@ -157,72 +164,189 @@ function drawBoidsAveragePoint()
 	ctx.fillRect(center.x, center.y, dotSize, dotSize);
 }
 
+var clockSet = false;
 function syncClock()
 {
-	timer.elapsedTime = client.clock();
-	console.log("serverClock", timer.elapsedTime);
+	var serverTime = client.clock() / 1000;
+	if (!clockSet && serverTime)
+	{
+		timer.elapsedTime = serverTime;
+		clockSet = true;
+		console.log("serverClock", timer.elapsedTime);
+	}
 }
 
-function onBoidAdded(data)
+function onBoidAdded(dataArray)
 {
-	if (data instanceof Array)
+	console.error("onBoidAdded!", dataArray)
+	for (var b = 0; b < dataArray.length; b++)
 	{
-		data.id = data[0];
-		data.rot = data[1];
-		data.x = data[2];
-		data.y = data[3];
+		var data = dataArray[b];
+		if (data instanceof Array)
+		{
+			data.id = data[0];
+			data.rot = data[1];
+			data.status = data[2];
+			data.team = data[3];
+			data.weapons = data[4];
+			data.x = data[5];
+			data.y = data[6];
+			for (var w = 0; w < data.weapons.length; w++)
+			{
+				var weapon = data.weapons[w];
+				weapon.coolDown = weapon[0];
+				weapon.damage = weapon[1];
+				weapon.fireTimestamp = weapon[2];
+				weapon.id = weapon[3];
+				weapon.precision = weapon[4];
+				weapon.range = weapon[5];
+			}
+		}
+		console.log("onBoidAdded", data)
+
+		var boid = new Boid(data.id, data.team);
+		boid.data = data;
+		boid.status = data.status;
+		boid.weapons = data.weapons;
+		boid.netMobile.root.position.x = data.x;
+		boid.netMobile.root.position.y = data.y;
+
+		boidsMap[data.id] = boid;
+		if (data.team)
+		{
+			assignTeam(data.id, data.team);
+		}
+
+		boidsCount++;
+		$("#boidsCount").text(boidsCount);
 	}
-	data.team = randomInt(0, teams.length-1);
-
-	var boid = new Boid(data.id, data.team);
-	boidsMap[data.id] = boid;
-	assignTeam(data.id, data.team);
-	
-	boidsCount++;
-	$("#boidsCount").text(boidsCount);
-
-	objects.push(boid);
 }
 
 function onBoidRemoved(data)
 {
-	var id = data;
-	for (var i=0; i<objects.length; i++)
+	console.log("onBoidRemoved", "#"+data)
+	var boidId = data;
+	var boid = boidsMap[boidId];
+
+	if (!boid)
 	{
-		if (objects[i].id === id)
-		{
-			objects.splice(i, 1);
-			delete boidsMap[id];
-			$("#boidsCount").text(boidsCount);
-			return;
-		}
+		console.warn("onBoidRemoved", "boid #"+data+" not found!")
+		return;
+	}
+
+	var index = objects.indexOf(boid);
+	if (index !== -1)
+	{
+		objects.splice(index, 1);
+		delete boidsMap[boidId];
+		$("#boidsCount").text(boidsCount);
 	}
 }
 
-var startByte = 5;
+function onUsedSkill(data)
+{
+	console.log("onUsedSkill", data)
+	if (!boidsMap[data.origin] || !boidsMap[data.shipId])
+	{
+		if (!boidsMap[data.origin])
+		{
+			console.warn("boid #" + data.origin + " is not found!");
+		}
+		if (!boidsMap[data.shipId])
+		{
+			console.warn("boid #" + data.shipId + " is not found!");
+		}
+		return;
+	}
+
+	if (data.weaponId === "canon")
+	{
+		shootLaser(data.origin, data.shipId, data.success);
+	}
+	else
+	{
+		shootMissile(data.origin, data.shipId, data.success);
+	}
+}
+
+function onPv(dataView)
+{
+	var boidId = dataView.getUint16(0, true);
+	var diff = dataView.getInt32(2, true);
+
+	console.log("onPv", "#"+boidId, diff);
+
+	var boid = boidsMap[boidId];
+	if (!boid)
+	{
+		console.warn("onPv", "boid #"+boidId+" not found!");
+		return;
+	}
+
+	boid.pv += (diff / maxPv);
+}
+
+function onBoidStatusChanged(data)
+{
+	console.log("onBoidStatusChanged", data)
+	var boid = boidsMap[data.shipId];
+
+	if (!boid)
+	{
+		console.warn("onBoidStatusChanged", "boid #"+data.shipId+" not found!");
+		return;
+	}
+
+	if (data.status === "Waiting")
+	{
+		//
+	}
+
+	if (data.status === "InGame")
+	{
+		if (objects.indexOf(boid) === -1)
+		{
+			objects.push(boid);
+		}
+	}
+	else
+	{
+		var index = objects.indexOf(boid);
+		if (index !== -1)
+		{
+			objects.splice(index, 1);
+		}
+	}
+
+	if (data.status === "Dead")
+	{
+		if (boid.status === "InGame")
+		{
+			boidDie(boid.id);
+		}
+	}
+
+	boid.status = data.status;
+}
+
 var frameSize = 22;
 function onBoidUpdate(dataView)
 {
-	for (var i = startByte; dataView.byteLength - i >= frameSize; i += frameSize)
+	for (var i = 0; dataView.byteLength - i >= frameSize; i += frameSize)
 	{
 		var id = dataView.getUint16(i, true);
-		if (!boidsMap[id])
-		{
-			onBoidAdded({
-				id:id,
-				rot:0,
-				x:0,
-				y:0,
-				team:randomInt(0, teams.length-1)
-			});
-		}
 		var x = dataView.getFloat32(i+2, true);
 		var y = dataView.getFloat32(i+6, true);
 		var rot = dataView.getFloat32(i+10, true);
 		var time = getUint64(dataView, i+14, true) / 1000;
-		console.log("time", time)
+		console.log("onBoidUpdate", "#"+id, "time: ", time)
 		
-		var boid = boidsMap[id];
+		var boid;
+		if (!(boid = boidsMap[id]))
+		{
+			console.warn("onBoidUpdate", "boid #"+id+" not found!");
+			continue;
+		}
 		boid.netMobile.pushInterpData({
 			time: time,
 			position: new THREE.Vector3(x, y, 0),
@@ -260,6 +384,13 @@ window.onmouseup = function(e)
 {
 	mouseHold = false;
 };
+
+function onmousewheel(e)
+{
+	worldZoom += (e.wheelDelta/120*0.1);
+}
+document.addEventListener("mousewheel", onmousewheel, false);
+document.addEventListener("DOMMouseScroll", onmousewheel, false); // Firefox
 
 var kbMoveLeft = false;
 var kbMoveRight = false;
@@ -370,12 +501,12 @@ function computeCenter()
 		if (object instanceof Boid)
 		{
 			center.x += object.netMobile.root.position.x;
-			center.y += object.netMobile.root.position.z;
+			center.y += object.netMobile.root.position.y;
 			j++;
 		}
 	}
 
-	center.multiplyScalar(1/(j||1));
+	center.multiplyScalar(1 / (j || 1));
 }
 
 function createExplosion(boidId, radiusMax)
@@ -388,31 +519,23 @@ function createExplosion(boidId, radiusMax)
 	return explosion;
 }
 
-function shootLazer(boidId, targetId, hit)
+function shootLaser(boidId, targetId, hit)
 {
 	var boid = boidsMap[boidId];
 	var target = boidsMap[targetId];
-	var lazer = new Lazer(boid.netMobile.root.position, target.netMobile.root.position);
+	var lazer = new Laser(boid.netMobile.root.position, target.netMobile.root.position, hit);
 	objects.push(lazer);
 	if (hit)
 	{
-		hitLazer(targetId);
+		hitLaser(targetId);
 	}
 	return lazer;
 }
 
-function hitLazer(boidId)
+function hitLaser(boidId)
 {
 	var boid = boidsMap[boidId];
-	boid.life = Math.max(boid.life - 0.25, 0);
-	if (boid.life == 0)
-	{
-		boidDie(boidId);
-	}
-	else
-	{
-		createExplosion(boidId, 1);
-	}
+	createExplosion(boidId, 1);
 }
 
 function shootMissile(boidId, targetId, hit)
@@ -427,15 +550,7 @@ function shootMissile(boidId, targetId, hit)
 function hitMissile(boidId)
 {
 	var boid = boidsMap[boidId];
-	boid.life = Math.max(boid.life - 0.5, 0);
-	if (boid.life == 0)
-	{
-		boidDie(boidId);
-	}
-	else
-	{
-		createExplosion(boidId, 2);
-	}
+	createExplosion(boidId, 2);
 }
 
 function randomBoid()
@@ -462,28 +577,44 @@ function randomHit(successRatio)
 	return (Math.random()<successRatio ? true : false);
 }
 
+// TEAM
+function Team(id, color)
+{
+	this.id = id;
+	this.color = color;
+	this.boids = [];
+}
+
+function getTeam(teamId)
+{
+	if (!teams[teamId])
+	{
+		teams[teamId] = new Team(teamId, teamColorsSet[teamId % teamColorsSet.length]);
+	}
+	return teams[teamId];
+}
+
 function assignTeam(boidId, teamId)
 {
 	var boid = boidsMap[boidId];
-	var team = teams[teamId];
+	var team = getTeam(teamId);
 	team.boids.push(boidId);
-	boid.team = team;
+	boid.color = team.color;
 }
 
 function unassignTeam(boidId)
 {
 	var boid = boidsMap[boidId];
-	var team = boid.team;
-	var teamId = team.id;
+	var teamId = boid.team;
+	var team = teams[teamId];
 
 	boid.team = null;
-	for (var i=0; i<team.boids.length; i++)
+	boid.color = null;
+
+	var index = team.boids.indexOf(boidId);
+	if (index !== -1)
 	{
-		if (team.boids[i] === boidId)
-		{
-			team.boids.splice(i, 1);
-			break;
-		}
+		team.boids.splice(index, 1);
 	}
 }
 
@@ -491,24 +622,8 @@ function boidDie(boidId)
 {
 	var explosion = createExplosion(boidId, 3);
 	var boid = boidsMap[boidId];
-	explosion.color = boid.team.color;
+	explosion.color = boid.color;
 }
-
-setInterval(function(){
-	var b1 = (b1 = randomBoid()) && (b1 = b1.id);
-	var b2 = (b2 = randomBoid()) && (b2 = b2.id);
-	if (b1 !== b2)
-	{
-		if (Math.random() > 0.5)
-		{
-			shootLazer(b1, b2, randomHit(0.9));
-		}
-		else
-		{
-			shootMissile(b2, b1, randomHit(0.7));
-		}
-	}
-}, 1000);
 
 function getUint64(dataView, offset, littleEndian)
 {
@@ -519,3 +634,21 @@ function getUint64(dataView, offset, littleEndian)
 	}
 	return number;
 }
+/*
+// BOID FIGHT SIMULATION (CLIENT SIDE)
+setInterval(function(){
+	var b1 = (b1 = randomBoid()) && (b1 = b1.id);
+	var b2 = (b2 = randomBoid()) && (b2 = b2.id);
+	if (b1 !== b2)
+	{
+		if (Math.random() > 0.5)
+		{
+			shootLaser(b1, b2, randomHit(0.9));
+		}
+		else
+		{
+			shootMissile(b2, b1, randomHit(0.7));
+		}
+	}
+}, 1000);
+*/
