@@ -1,18 +1,33 @@
 var debug = false;
 
-if (typeof(accountId) === "undefined")
+if (typeof(urlParams) === "undefined")
 {
-	accountId = "997bc6ac-9021-2ad6-139b-da63edee8c58";
-	applicationName = "boids-test";
-	sceneName = "main";
+	(window.onpopstate = function () {
+		var match,
+		pl = /\+/g,  // Regex for replacing addition symbol with a space
+		search = /([^&=]+)=?([^&]*)/g,
+		decode = function(s) { return decodeURIComponent(s.replace(pl, " ")); },
+		query = window.location.search.substring(1);
+
+		urlParams = {};
+		while (match = search.exec(query))
+		{
+			urlParams[decode(match[1])] = decode(match[2]);
+		}
+	})();
 }
 
-if (window.location.href.split('/').pop().indexOf("?localhost") !== -1)
+if (urlParams.hasOwnProperty("localhost"))
 {
 	Stormancer.Configuration.apiEndpoint = "http://localhost:8081";
-	accountId = "test";
-	applicationName = "boids";
-	sceneName = "main";
+}
+
+if (typeof(accountId) === "undefined")
+{
+
+	accountId = urlParams["accountId"] || "997bc6ac-9021-2ad6-139b-da63edee8c58";
+	applicationName = urlParams["applicationName"] || "boids-test";
+	sceneName = urlParams["sceneName"] || "main";
 }
 
 var deltaReceiveAvg = new Average();
