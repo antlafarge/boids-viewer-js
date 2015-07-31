@@ -4,9 +4,13 @@ if (window.location.href.indexOf("localhost"))
 {
 	Stormancer.Configuration.apiEndpoint = "http://localhost:8081";
 }
-
+/*
 var accountId = "997bc6ac-9021-2ad6-139b-da63edee8c58";
 var applicationName = "boids-test";
+var sceneName = "main";
+*/
+var accountId = "test";
+var applicationName = "boids";
 var sceneName = "main";
 
 var deltaReceiveAvg = new Average();
