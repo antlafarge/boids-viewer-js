@@ -24,7 +24,6 @@ if (urlParams.hasOwnProperty("localhost"))
 
 if (typeof(accountId) === "undefined")
 {
-
 	accountId = urlParams["accountId"] || "997bc6ac-9021-2ad6-139b-da63edee8c58";
 	applicationName = urlParams["applicationName"] || "boids-test";
 	sceneName = urlParams["sceneName"] || "main";
@@ -82,6 +81,8 @@ function main()
 	onResize();
 	requestRender();
 	
+	console.log("Connecting to app", accountId, applicationName, sceneName);
+
 	config = Stormancer.Configuration.forAccount(accountId, applicationName);
 	client = new Stormancer.Client(config);
 	client.getPublicScene(sceneName, {isObserver:true}).then(function(sc) {
