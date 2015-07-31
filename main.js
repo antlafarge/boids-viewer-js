@@ -328,6 +328,7 @@ function onBoidStatusChanged(data)
 		if (objects.indexOf(boid) === -1)
 		{
 			objects.push(boid);
+			boid.netMobile.interpData.length = 0;
 		}
 	}
 	else
