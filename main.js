@@ -1,32 +1,18 @@
 var debug = false;
 
-// STORMANCER PLUGIN SCRIPT STARTUP
-var urlParams;
-(window.onpopstate = function () {
-	var match,
-	pl = /\+/g,  // Regex for replacing addition symbol with a space
-	search = /([^&=]+)=?([^&]*)/g,
-	decode = function(s) { return decodeURIComponent(s.replace(pl, " ")); },
-	query = window.location.search.substring(1);
-
-	urlParams = {};
-	while (match = search.exec(query))
-	{
-		urlParams[decode(match[1])] = decode(match[2]);
-	}
-})();
-var account = urlParams["account"] || "997bc6ac-9021-2ad6-139b-da63edee8c58";
-var app = urlParams["app"] || "boids-test";
-var scene = urlParams["scene"] || "main";
-var adminPluginId = urlParams["pluginId"];
-var xToken = urlParams["x-token"];
+if (typeof(accountId) === "undefined")
+{
+	accountId = "997bc6ac-9021-2ad6-139b-da63edee8c58";
+	applicationName = "boids-test";
+	sceneName = "main";
+}
 
 if (window.location.href.split('/').pop().indexOf("?localhost") !== -1)
 {
 	Stormancer.Configuration.apiEndpoint = "http://localhost:8081";
-	account = "test";
-	app = "boids";
-	scene = "main";
+	accountId = "test";
+	applicationName = "boids";
+	sceneName = "main";
 }
 
 var deltaReceiveAvg = new Average();
@@ -81,9 +67,9 @@ function main()
 	onResize();
 	requestRender();
 	
-	config = Stormancer.Configuration.forAccount(account, app);
+	config = Stormancer.Configuration.forAccount(accountId, applicationName);
 	client = new Stormancer.Client(config);
-	client.getPublicScene(scene, {isObserver:true}).then(function(sc) {
+	client.getPublicScene(sceneName, {isObserver:true}).then(function(sc) {
 		scene = sc;
 		scene.registerRoute("ship.usedSkill", onUsedSkill);
 		scene.registerRoute("ship.statusChanged", onBoidStatusChanged);
