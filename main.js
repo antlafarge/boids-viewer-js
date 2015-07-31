@@ -203,7 +203,7 @@ function syncClock()
 
 function onBoidAdded(dataArray)
 {
-	console.log("onBoidAdded", dataArray)
+	//console.log("onBoidAdded", dataArray)
 	for (var b = 0; b < dataArray.length; b++)
 	{
 		var data = dataArray[b];
@@ -241,6 +241,11 @@ function onBoidAdded(dataArray)
 			assignTeam(data.id, data.team);
 		}
 
+		if (boid.status === "InGame")
+		{
+			objects.push(boid);
+		}
+
 		boidsCount++;
 		showBoidsCount();
 	}
@@ -248,7 +253,7 @@ function onBoidAdded(dataArray)
 
 function onBoidRemoved(data)
 {
-	console.log("onBoidRemoved", "#"+data)
+	//console.log("onBoidRemoved", "#"+data)
 	var boidId = data;
 	var boid = boidsMap[boidId];
 
@@ -263,6 +268,7 @@ function onBoidRemoved(data)
 	{
 		objects.splice(index, 1);
 		delete boidsMap[boidId];
+		boidsCount--;
 		showBoidsCount();
 	}
 }
@@ -282,7 +288,7 @@ function showBoidsCount()
 
 function onUsedSkill(data)
 {
-	console.log("onUsedSkill", data)
+	//console.log("onUsedSkill", data)
 	if (!boidsMap[data.origin] || !boidsMap[data.shipId])
 	{
 		if (!boidsMap[data.origin])
@@ -311,7 +317,7 @@ function onPv(dataView)
 	var boidId = dataView.getUint16(0, true);
 	var diff = dataView.getInt32(2, true);
 
-	console.log("onPv", "#"+boidId, diff);
+	//console.log("onPv", "#"+boidId, diff);
 
 	var boid = boidsMap[boidId];
 	if (!boid)
@@ -325,7 +331,7 @@ function onPv(dataView)
 
 function onBoidStatusChanged(data)
 {
-	console.log("onBoidStatusChanged", data)
+	//console.log("onBoidStatusChanged", data)
 	var boid = boidsMap[data.shipId];
 
 	if (!boid)
@@ -377,7 +383,7 @@ function onBoidUpdate(dataView)
 		var y = dataView.getFloat32(i+6, true);
 		var rot = dataView.getFloat32(i+10, true);
 		var time = getUint64(dataView, i+14, true) / 1000;
-		console.log("onBoidUpdate", "#"+id, "time: ", time)
+		//.log("onBoidUpdate", "#"+id, "time: ", time)
 		
 		var boid;
 		if (!(boid = boidsMap[id]))
@@ -573,7 +579,7 @@ function shootLaser(boidId, targetId, hit)
 function hitLaser(boidId)
 {
 	var boid = boidsMap[boidId];
-	createExplosion(boidId, 1);
+	createExplosion(boidId, 0.1);
 }
 
 function shootMissile(boidId, targetId, hit)
@@ -588,7 +594,7 @@ function shootMissile(boidId, targetId, hit)
 function hitMissile(boidId)
 {
 	var boid = boidsMap[boidId];
-	createExplosion(boidId, 2);
+	createExplosion(boidId, 1);
 }
 
 function randomBoid()
@@ -658,7 +664,7 @@ function unassignTeam(boidId)
 
 function boidDie(boidId)
 {
-	var explosion = createExplosion(boidId, 3);
+	var explosion = createExplosion(boidId, 2);
 	var boid = boidsMap[boidId];
 	explosion.color = boid.color;
 }

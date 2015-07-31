@@ -32,6 +32,7 @@ Boid.prototype.draw = function()
 	ctx.translate(x, y);
 	ctx.scale(0.5, 0.5);
 
+	/*
 	ctx.beginPath();
 	ctx.fillStyle = "#000";
 	ctx.fillRect(-5,5, 10,1);
@@ -39,6 +40,7 @@ Boid.prototype.draw = function()
 	ctx.strokeRect(-5,5, 10,1);
 	ctx.fillStyle = "#00FF00";
 	ctx.fillRect(-5,5, 10*this.pv,1);
+	*/
 
 	ctx.rotate(rot);
 	ctx.beginPath();
