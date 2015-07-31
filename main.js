@@ -4,7 +4,7 @@ var accountId = "997bc6ac-9021-2ad6-139b-da63edee8c58";
 var applicationName = "boids-test";
 var sceneName = "main";
 
-if (window.location.href.indexOf("localhost"))
+if (window.location.href.indexOf("?localhost") !== -1 || window.location.href.indexOf("&localhost") !== -1)
 {
 	Stormancer.Configuration.apiEndpoint = "http://localhost:8081";
 	accountId = "test";
