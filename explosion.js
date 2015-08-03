@@ -16,6 +16,7 @@ Explosion.prototype.update = function(delta, time)
 		this.radius += 128*delta;
 		if (this.radius > this.radiusMax)
 		{
+			this.radius = this.radiusMax;
 			this.disappear = true;
 		}
 	}
@@ -25,6 +26,7 @@ Explosion.prototype.update = function(delta, time)
 		this.alpha -= delta;
 		if (this.alpha < 0)
 		{
+			this.alpha = 0;
 			return true;
 		}
 	}

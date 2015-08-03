@@ -147,7 +147,10 @@ function render()
 		}
 		else
 		{
-			object.draw();
+			if (clockSet)
+			{
+				object.draw();
+			}
 			i++
 		}
 	}
@@ -193,7 +196,7 @@ var clockSet = false;
 function syncClock()
 {
 	var serverTime = client.clock() / 1000;
-	if (!clockSet && serverTime)
+	if (/*!clockSet && */serverTime)
 	{
 		timer.elapsedTime = serverTime;
 		clockSet = true;
@@ -579,7 +582,7 @@ function shootLaser(boidId, targetId, hit)
 function hitLaser(boidId)
 {
 	var boid = boidsMap[boidId];
-	createExplosion(boidId, 0.1);
+	createExplosion(boidId, 0.25);
 }
 
 function shootMissile(boidId, targetId, hit)
@@ -594,7 +597,7 @@ function shootMissile(boidId, targetId, hit)
 function hitMissile(boidId)
 {
 	var boid = boidsMap[boidId];
-	createExplosion(boidId, 1);
+	createExplosion(boidId, 0.5);
 }
 
 function randomBoid()

@@ -729,7 +729,19 @@ var Stormancer;
             var _this = this;
             var serializer = new Stormancer.MsgPackSerializer();
             var data = serializer.serialize(userData);
+            var data2 = new Blob([data], { type: "application/msgpack" });
             var url = this._config.getApiEndpoint() + Stormancer.Helpers.stringFormat(this.createTokenUri, accountId, applicationName, sceneId);
+            console.log(url, {
+                type: "POST",
+                url: url,
+                contentType: "application/msgpack",
+                headers: {
+                    "Accept": "application/json",
+                    "x-version": "1.0.0"
+                },
+                processData: false,
+                data: data2
+            });
             return $.ajax({
                 type: "POST",
                 url: url,
@@ -738,7 +750,8 @@ var Stormancer;
                     "Accept": "application/json",
                     "x-version": "1.0.0"
                 },
-                data: data
+                processData: false,
+                data: data2
             }).then(function (result) {
                 return _this._tokenHandler.decodeToken(result);
             });
