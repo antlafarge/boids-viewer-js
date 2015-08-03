@@ -721,37 +721,24 @@ var Stormancer;
 (function (Stormancer) {
     var ApiClient = (function () {
         function ApiClient(config, tokenHandler) {
-            this.createTokenUri = "/{0}/{1}/scenes/{2}/token";
+            this.createTokenUri = "{0}/{1}/scenes/{2}/token";
             this._config = config;
             this._tokenHandler = tokenHandler;
         }
         ApiClient.prototype.getSceneEndpoint = function (accountId, applicationName, sceneId, userData) {
             var _this = this;
             var serializer = new Stormancer.MsgPackSerializer();
-            var data = serializer.serialize(userData);
-            var data2 = new Blob([data], { type: "application/msgpack" });
             var url = this._config.getApiEndpoint() + Stormancer.Helpers.stringFormat(this.createTokenUri, accountId, applicationName, sceneId);
-            console.log(url, {
-                type: "POST",
-                url: url,
-                contentType: "application/msgpack",
-                headers: {
-                    "Accept": "application/json",
-                    "x-version": "1.0.0"
-                },
-                processData: false,
-                data: data2
-            });
             return $.ajax({
                 type: "POST",
                 url: url,
-                contentType: "application/msgpack",
                 headers: {
                     "Accept": "application/json",
                     "x-version": "1.0.0"
                 },
-                processData: false,
-                data: data2
+                dataType: "json",
+                contentType: "application/json",
+                data: JSON.stringify(userData)
             }).then(function (result) {
                 return _this._tokenHandler.decodeToken(result);
             });
@@ -982,7 +969,9 @@ var Stormancer;
             return (window.performance && window.performance.now && window.performance.now()) || Date.now();
         };
         Client.prototype.startAsyncClock = function () {
-            this.syncClockIntervalId = setInterval(this.syncClockImpl.bind(this), this._pingInterval);
+            if (!this.syncClockIntervalId) {
+                this.syncClockIntervalId = setInterval(this.syncClockImpl.bind(this), this._pingInterval);
+            }
         };
         Client.prototype.stopAsyncClock = function () {
             clearInterval(this.syncClockIntervalId);
@@ -1004,7 +993,7 @@ var Stormancer;
                     }
                     _this.lastPing = timeEnd - timeStart;
                     _this._offset = timeRef - (_this.lastPing / 2) - timeStart;
-                });
+                }).fail(function (e) { return console.error("ping: Failed to ping server.", e); });
             }
             catch (e) {
                 console.error("ping: Failed to ping server.", e);

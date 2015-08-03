@@ -24,9 +24,9 @@ if (urlParams.hasOwnProperty("localhost"))
 
 if (typeof(accountId) === "undefined")
 {
-	accountId = urlParams["accountId"] || "997bc6ac-9021-2ad6-139b-da63edee8c58";
-	applicationName = urlParams["applicationName"] || "boids-test";
-	sceneName = urlParams["sceneName"] || "main";
+	accountId = urlParams["accountId"] || "d81fc876-6094-3d92-a3d0-86d42d866b96";
+	applicationName = urlParams["applicationName"] || "boids-demo";
+	sceneName = urlParams["sceneName"] || "main-session";
 }
 
 var deltaReceiveAvg = new Average();
@@ -75,8 +75,6 @@ function toggleDebugInfos()
 function main()
 {
 	//toggleDebugInfos();
-	//toggleDebug();
-	$("#debugCheckbox").prop('checked', true);
 
 	onResize();
 	requestRender();
@@ -93,7 +91,6 @@ function main()
 		scene.registerRoute("ship.remove", onBoidRemoved);
 		scene.registerRouteRaw("ship.pv", onPv);
 		scene.registerRouteRaw("position.update", onBoidUpdate);
-		//scene.registerRoute("ship.me", onMyBoid);
 		return scene.connect().then(function() {
 			console.log("CONNECTED");
 			setInterval(syncClock, 1000);
@@ -196,11 +193,12 @@ var clockSet = false;
 function syncClock()
 {
 	var serverTime = client.clock() / 1000;
+	//console.log("serverClock", serverTime);
 	if (/*!clockSet && */serverTime)
 	{
 		timer.elapsedTime = serverTime;
 		clockSet = true;
-		console.log("serverClock", timer.elapsedTime);
+		//console.log("myClock", timer.elapsedTime);
 	}
 }
 
@@ -379,6 +377,7 @@ function onBoidStatusChanged(data)
 var frameSize = 22;
 function onBoidUpdate(dataView)
 {
+	//console.log(dataView.byteLength)
 	for (var i = 0; dataView.byteLength - i >= frameSize; i += frameSize)
 	{
 		var id = dataView.getUint16(i, true);
@@ -386,7 +385,7 @@ function onBoidUpdate(dataView)
 		var y = dataView.getFloat32(i+6, true);
 		var rot = dataView.getFloat32(i+10, true);
 		var time = getUint64(dataView, i+14, true) / 1000;
-		//.log("onBoidUpdate", "#"+id, "time: ", time)
+		//console.log("onBoidUpdate", "#"+id, "time: ", time)
 		
 		var boid;
 		if (!(boid = boidsMap[id]))

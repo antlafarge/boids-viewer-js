@@ -11,9 +11,10 @@
 		.bl th, .bl td { padding:2px 4px; border:1px solid #bbf; }
 		.alignLeft { text-align:left; }
 		.alignRight, .numberInt, .numberFloat { text-align:right; }
-		div.title { position:absolute; bottom:16px; left:16px; width:100%; color:#fff; font-size:200%; }
-		div.boidsCount { position:absolute; bottom:16px; right:16px; color:#fff; font-size:200%; }
-		#logo-stormancer { display:block; position:absolute; top:16px; width:100%; text-align:center; }
+		div.title { position:absolute; bottom:0px; left:16px; width:100%; color:#fff; }
+		div.boidsCount { position:absolute; top:0px; left:16px; color:#fff; }
+		span#boidsCount { display:inline-block; min-width:72pt; text-align:right; }
+		.font { font-size:300%; font-family:"Arial Black"; text-transform:uppercase; }
 	</style>
 </head>
 
@@ -21,10 +22,8 @@
 	<canvas id="scene"></canvas>
 	<canvas id="netgraph"></canvas>
 
-	<div id="logo-stormancer"><a href="http://www.stormancer.com"><img src="Stormancer.png"></a></div>
-
-	<div class="title">Network demo</div>
-	<div class="boidsCount"><span id="boidsCount">0</span> player<span id="boidsCountS">s</span></div>
+	<div class="title font">Network demo</div>
+	<div class="boidsCount font"><span id="boidsCount">0</span> connected player<span id="boidsCountS">s</span></div>
 	
 	<table class="bl" style="display:none;">
 		<tr><th><label for="debugCheckbox">debug</th><td><input id="debugCheckbox" type="checkbox" onclick="toggleDebug()" autocomplete="off"></td></tr>
