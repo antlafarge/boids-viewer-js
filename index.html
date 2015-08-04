@@ -14,8 +14,9 @@
 		div.title { position:absolute; bottom:0px; left:16px; width:100%; color:#fff; }
 
 		div.boidsCount { position:absolute; top:0px; left:16px; color:#fff; }
-		span#boidsCount { display:inline-block; min-width:72pt; text-align:right; }
-		.font { font-size:300%; font-family:"Arial Black"; text-transform:uppercase; }
+		span#boidsCount { display:inline-block; min-width:36pt; text-align:right; }
+		.font { font-size:150%; font-family:"Arial Black"; text-transform:uppercase; }
+		div.killCount { position:absolute; bottom:0px; right:16px; color:#fff; }
 	</style>
 </head>
 
@@ -28,6 +29,9 @@
 		<span id="boidsCount">0</span> connected player<span id="boidsCountS">s</span>
 	</div>
 	<div class="title font">Network demo</div>
+	<div class="killCount font">
+		<span id="killCount">0</span> killed player<span id="killCountS">s</span>
+	</div>
 	
 	<table class="bl" style="display:none;">
 		<tr><th><label for="debugCheckbox">debug</th><td><input id="debugCheckbox" type="checkbox" onclick="toggleDebug()" autocomplete="off"></td></tr>

@@ -52,6 +52,7 @@ var myId;
 var objects = [];
 var boidsMap = {};
 var boidsCount = 0;
+var killCount = 0;
 var teams = [];
 var teamColorsSet = ["#ed7f10", "#52f38c"];
 
@@ -193,12 +194,14 @@ var clockSet = false;
 function syncClock()
 {
 	var serverTime = client.clock() / 1000;
-	//console.log("serverClock", serverTime);
-	if (/*!clockSet && */serverTime)
+	if (!clockSet && serverTime)
+	{
+		clockSet = true;
+		refreshKillCount();
+	}
+	if (serverTime)
 	{
 		timer.elapsedTime = serverTime;
-		clockSet = true;
-		//console.log("myClock", timer.elapsedTime);
 	}
 }
 
@@ -287,38 +290,53 @@ function showBoidsCount()
 	}
 }
 
+function showKillCount()
+{
+	$("#killCount").text(killCount);
+	if (killCount != 1)
+	{
+		$("#killCountS").show();
+	}
+	else
+	{
+		$("#killCountS").hide();
+	}
+}
+
 function onUsedSkill(dataArray)
 {
 	if (!(dataArray instanceof Array))
 	{
 		dataArray = [dataArray];
 	}
-	//console.log("onUsedSkill", dataArray)
+	//console.log("onUsedSkill", dataArray);
 	var sz = dataArray.length;
 	for (var i = 0; i < sz; i++)
 	{
 		var data = dataArray[i];
-		if (!boidsMap[data.origin] || !boidsMap[data.shipId])
-		{
-			if (!boidsMap[data.origin])
+		var delay = timer.getElapsedTime() - data.timestamp;
+		setTimeout(function() {
+			if (!boidsMap[data.origin] || !boidsMap[data.shipId])
 			{
-				console.warn("boid #" + data.origin + " is not found!");
+				if (!boidsMap[data.origin])
+				{
+					console.warn("boid #" + data.origin + " is not found!");
+				}
+				if (!boidsMap[data.shipId])
+				{
+					console.warn("boid #" + data.shipId + " is not found!");
+				}
+				return;
 			}
-			if (!boidsMap[data.shipId])
+			if (data.weaponId === "canon")
 			{
-				console.warn("boid #" + data.shipId + " is not found!");
+				shootLaser(data.origin, data.shipId, data.success);
 			}
-			return;
-		}
-
-		if (data.weaponId === "canon")
-		{
-			shootLaser(data.origin, data.shipId, data.success);
-		}
-		else
-		{
-			shootMissile(data.origin, data.shipId, data.success);
-		}
+			else
+			{
+				shootMissile(data.origin, data.shipId, data.success);
+			}
+		}, Math.max(delay, 0));
 	}
 }
 
@@ -377,6 +395,8 @@ function onBoidStatusChanged(data)
 		if (boid.status === "InGame")
 		{
 			boidDie(boid.id);
+			killCount++;
+			showKillCount();
 		}
 	}
 
@@ -408,6 +428,16 @@ function onBoidUpdate(dataView)
 			orientation: (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), rot)
 		});
 	}
+}
+
+function refreshKillCount()
+{
+	scene.getComponent("rpcService").RpcRaw("ship.killCount", new Uint8Array(0), function(packet){
+		var dataView = new DataView(packet.data, packet.data.byteOffset);
+		killCount = getUint64(dataView, 0, true);
+		var timestamp = getUint64(dataView, 8, true);
+		showKillCount();
+	});
 }
 
 var lastMouseX;
@@ -682,6 +712,8 @@ function boidDie(boidId)
 
 function getUint64(dataView, offset, littleEndian)
 {
+	offset = offset || 0;
+	littleEndian = littleEndian || false;
 	var number = 0;
 	for (var i = 0; i < 8; i++)
 	{
@@ -689,6 +721,7 @@ function getUint64(dataView, offset, littleEndian)
 	}
 	return number;
 }
+
 /*
 // BOID FIGHT SIMULATION (CLIENT SIDE)
 setInterval(function(){
