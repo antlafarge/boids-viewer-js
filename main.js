@@ -287,29 +287,38 @@ function showBoidsCount()
 	}
 }
 
-function onUsedSkill(data)
+function onUsedSkill(dataArray)
 {
-	//console.log("onUsedSkill", data)
-	if (!boidsMap[data.origin] || !boidsMap[data.shipId])
+	if (!(dataArray instanceof Array))
 	{
-		if (!boidsMap[data.origin])
-		{
-			console.warn("boid #" + data.origin + " is not found!");
-		}
-		if (!boidsMap[data.shipId])
-		{
-			console.warn("boid #" + data.shipId + " is not found!");
-		}
-		return;
+		dataArray = [dataArray];
 	}
+	//console.log("onUsedSkill", dataArray)
+	var sz = dataArray.length;
+	for (var i = 0; i < sz; i++)
+	{
+		var data = dataArray[i];
+		if (!boidsMap[data.origin] || !boidsMap[data.shipId])
+		{
+			if (!boidsMap[data.origin])
+			{
+				console.warn("boid #" + data.origin + " is not found!");
+			}
+			if (!boidsMap[data.shipId])
+			{
+				console.warn("boid #" + data.shipId + " is not found!");
+			}
+			return;
+		}
 
-	if (data.weaponId === "canon")
-	{
-		shootLaser(data.origin, data.shipId, data.success);
-	}
-	else
-	{
-		shootMissile(data.origin, data.shipId, data.success);
+		if (data.weaponId === "canon")
+		{
+			shootLaser(data.origin, data.shipId, data.success);
+		}
+		else
+		{
+			shootMissile(data.origin, data.shipId, data.success);
+		}
 	}
 }
 
@@ -569,13 +578,13 @@ function shootLaser(boidId, targetId, hit)
 {
 	var boid = boidsMap[boidId];
 	var target = boidsMap[targetId];
-	var lazer = new Laser(boid.netMobile.root.position, target.netMobile.root.position, hit);
-	objects.push(lazer);
+	var laser = new Laser(boid.netMobile.root.position, target.netMobile.root.position, hit);
+	objects.push(laser);
 	if (hit)
 	{
 		hitLaser(targetId);
 	}
-	return lazer;
+	return laser;
 }
 
 function hitLaser(boidId)

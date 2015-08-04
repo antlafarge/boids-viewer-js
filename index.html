@@ -12,6 +12,7 @@
 		.alignLeft { text-align:left; }
 		.alignRight, .numberInt, .numberFloat { text-align:right; }
 		div.title { position:absolute; bottom:0px; left:16px; width:100%; color:#fff; }
+
 		div.boidsCount { position:absolute; top:0px; left:16px; color:#fff; }
 		span#boidsCount { display:inline-block; min-width:72pt; text-align:right; }
 		.font { font-size:300%; font-family:"Arial Black"; text-transform:uppercase; }
@@ -22,8 +23,11 @@
 	<canvas id="scene"></canvas>
 	<canvas id="netgraph"></canvas>
 
+	<div class="boidsCount font">
+		Flexible and powerful server for online games<br>
+		<span id="boidsCount">0</span> connected player<span id="boidsCountS">s</span>
+	</div>
 	<div class="title font">Network demo</div>
-	<div class="boidsCount font"><span id="boidsCount">0</span> connected player<span id="boidsCountS">s</span></div>
 	
 	<table class="bl" style="display:none;">
 		<tr><th><label for="debugCheckbox">debug</th><td><input id="debugCheckbox" type="checkbox" onclick="toggleDebug()" autocomplete="off"></td></tr>
