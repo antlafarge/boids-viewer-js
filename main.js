@@ -375,7 +375,7 @@ function onBoidUpdate(dataView) {
 
 function refreshKillCount() {
     scene.getComponent("rpcService").RpcRaw("ship.killCount", new Uint8Array(0), function (packet) {
-        var dataView = new DataView(packet.data, packet.data.byteOffset);
+        var dataView = new DataView(packet.data.buffer, packet.data.byteOffset);
         killCount = getUint64(dataView, 0, true);
         var timestamp = getUint64(dataView, 8, true);
         showKillCount();
