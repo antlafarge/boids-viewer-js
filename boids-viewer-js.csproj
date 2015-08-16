@@ -46,7 +46,7 @@
     <Content Include="checker.js" />
     <Content Include="explosion.js" />
     <Content Include="index.html" />
-    <Content Include="lazer.js" />
+    <Content Include="laser.js" />
     <Content Include="libs\jquery-1.11.3.min.js" />
     <Content Include="libs\stormancer.js" />
     <Content Include="libs\three.min.js" />
