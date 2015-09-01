@@ -1,0 +1,5 @@
+C:\git\boids-viewer-js\bin\Debug\ClassLibrary.dll
+C:\git\boids-viewer-js\bin\Debug\ClassLibrary.pdb
+C:\git\boids-viewer-js\obj\Debug\boids-viewer-js.csprojResolveAssemblyReference.cache
+C:\git\boids-viewer-js\obj\Debug\ClassLibrary.dll
+C:\git\boids-viewer-js\obj\Debug\ClassLibrary.pdb
