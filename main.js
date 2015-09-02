@@ -78,7 +78,7 @@ function main() {
 
     config = Stormancer.Configuration.forAccount(accountId, applicationName);
     client = new Stormancer.Client(config);
-    client.getPublicScene(sceneName, { isObserver: true }).then(function (sc) {
+    client.getPublicScene(sceneName, {isObserver:true}).then(function (sc) {
         scene = sc;
         scene.registerRoute("ship.usedSkill", onUsedSkill);
         scene.registerRoute("ship.statusChanged", onBoidStatusChanged);
@@ -478,8 +478,18 @@ function toggleDebug() {
     debug = !debug;
 }
 
-function startBoid() {
+function startWorkerBoid() {
     var worker = new Worker("workerBoid.js");
+
+	worker.addEventListener('message', function(e) {
+		console.log('Worker said: ', e.data);
+	});
+
+	worker.postMessage({
+		accountId: accountId,
+		applicationName: applicationName,
+		sceneName: sceneName
+	});
 }
 
 function getPing(packetId) {
