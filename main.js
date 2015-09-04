@@ -84,8 +84,8 @@ function main() {
         scene.registerRoute("ship.statusChanged", onBoidStatusChanged);
         scene.registerRoute("ship.add", onBoidAdded);
         scene.registerRoute("ship.remove", onBoidRemoved);
-        scene.registerRouteRaw("ship.pv", onPv);
-        scene.registerRouteRaw("position.update", onBoidUpdate);
+        scene.addRoute("ship.pv", onPv);
+        scene.addRoute("position.update", onBoidUpdate);
         return scene.connect().then(function () {
             console.log("CONNECTED");
             setInterval(syncClock, 1000);
@@ -297,7 +297,9 @@ function renderSkill(data, delay) {
     }, Math.max(delay, 0));
 }
 
-function onPv(dataView) {
+function onPv(packet) {
+    var dataView = packet.getDataView();
+
     var boidId = dataView.getUint16(0, true);
     var diff = dataView.getInt32(2, true);
 
@@ -350,15 +352,15 @@ function onBoidStatusChanged(data) {
 }
 
 var frameSize = 22;
-function onBoidUpdate(dataView) {
-    //console.log(dataView.byteLength)
+function onBoidUpdate(packet) {
+    var dataView = packet.getDataView();
+    
     for (var i = 0; dataView.byteLength - i >= frameSize; i += frameSize) {
         var id = dataView.getUint16(i, true);
         var x = dataView.getFloat32(i + 2, true);
         var y = dataView.getFloat32(i + 6, true);
         var rot = dataView.getFloat32(i + 10, true);
         var time = getUint64(dataView, i + 14, true) / 1000;
-        //console.log("onBoidUpdate", "#"+id, "time: ", time)
 
         var boid;
         if (!(boid = boidsMap[id])) {
@@ -374,7 +376,7 @@ function onBoidUpdate(dataView) {
 }
 
 function refreshKillCount() {
-    scene.getComponent("rpcService").RpcRaw("ship.killCount", new Uint8Array(0), function (packet) {
+    scene.getComponent("rpcService").rpc("ship.killCount", [], function (packet) {
         var dataView = new DataView(packet.data.buffer, packet.data.byteOffset);
         killCount = getUint64(dataView, 0, true);
         var timestamp = getUint64(dataView, 8, true);
