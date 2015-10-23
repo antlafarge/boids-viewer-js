@@ -72,6 +72,7 @@ function toggleDebugInfos() {
 
 function startMatchMaker() {
     config = Stormancer.Configuration.forAccount(accountId, applicationName);
+    config.serverEndpoint = "http://127.0.0.1:8081";
     client = new Stormancer.Client(config);
     var loginPromise;
     try
