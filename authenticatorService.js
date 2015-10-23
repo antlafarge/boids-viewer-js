@@ -24,11 +24,8 @@ AuthenticatorService.prototype.login = function(authenticatorContext)
 {
 	return new Promise(function(resolve, reject) {
 		this.ensureAuthenticatorSceneConnected().then(function() {
-			var rpcService = this._authenticatorScene.getComponent("rpcService");
-
-			var onvalue = function(packet) {
+			this._authenticatorScene.getComponent("rpcService").rpc(this.loginRoute, authenticatorContext, function(packet) {
 				var loginResult = packet.readObject();
-				console.log(loginResult);
 				if (!loginResult.Success)
 				{
 					throw "MatchMaker login failed: Invalid credential (" + loginResult.ErrorMsg + ")";
@@ -38,20 +35,15 @@ AuthenticatorService.prototype.login = function(authenticatorContext)
 				this.sceneResultPromise.then(function(scene) {
 					resolve(scene);
 				}, function(error) {
-					console.error(error)
+					console.error(error);
 				});
-			}.bind(this);
-
-			var onerror = function(error) {
-				console.log("error", error)
+			}.bind(this),
+			function(error) {
 				reject(error);
-			};
-
-			var oncomplete = function() {
-				console.log("complete")
-			};
-
-			rpcService.rpc(this.loginRoute, authenticatorContext, onvalue, onerror, oncomplete, Stormancer.PacketPriority.HIGH_PRIORITY);
+			},
+			function() {
+			},
+			Stormancer.PacketPriority.HIGH_PRIORITY);
 
 		}.bind(this));
 	}.bind(this));
@@ -65,7 +57,7 @@ AuthenticatorService.prototype.ensureAuthenticatorSceneConnected = function(logi
 	{
 		this.authenticatorSceneConnecter = new Promise(function(resolve, reject) {
 			this.authenticatorSceneGetter.then(function(scene) {
-				console.log("connected");
+				console.log("Authenticator connected");
 	        	return scene.connect().then(function() {
 	        		resolve(scene);
 	        	});
@@ -96,7 +88,6 @@ AuthenticatorService.prototype.getAuthenticatorScene = function()
 AuthenticatorService.prototype.logout = function()
 {
 	return this.ensureAuthenticatorSceneConnected().then(function() {
-		console.log("connected")
 		if (this._authenticatorScene)
 		{
 			if (this._authenticatorScene.connected)

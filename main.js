@@ -20,8 +20,8 @@ if (urlParams.hasOwnProperty("localhost")) {
 }
 
 if (typeof (accountId) === "undefined") {
-    accountId = urlParams["accountId"] || "d9590543-56c3-c94a-f7bf-c394b26deb15";
-    applicationName = urlParams["applicationName"] || "boids-test";
+    accountId = urlParams["accountId"] || "d81fc876-6094-3d92-a3d0-86d42d866b96";
+    applicationName = urlParams["applicationName"] || "boids-demo";
 }
 
 var deltaReceiveAvg = new Average();
@@ -72,7 +72,7 @@ function toggleDebugInfos() {
 
 function startMatchMaker() {
     config = Stormancer.Configuration.forAccount(accountId, applicationName);
-    config.serverEndpoint = "http://127.0.0.1:8081/";
+    //config.serverEndpoint = "http://127.0.0.1:8081/";
     client = new Stormancer.Client(config);
     var loginPromise;
     try
@@ -93,6 +93,7 @@ function startMatchMaker() {
     	loginPromise.then(function(scene) {
     		matchMakerScene = scene;
     		matchMakerScene.connect().then(function() {
+    			console.log("MatchMaker connected");
     			matchMakerIsRunning = true;
     			launchMatch();
     		});
@@ -102,7 +103,7 @@ function startMatchMaker() {
 
 function launchMatch()
 {
-	matchmakerScene.getComponent("rpcService").rpc("match.find", true, function(packet) {
+	matchMakerScene.getComponent("rpcService").rpc("match.find", true, function(packet) {
 		var matchInfos = packet.readObject();
 		startGame(matchInfos);
 	});
@@ -126,7 +127,7 @@ function main() {
 
 function startGame(matchInfos)
 {
-	client.getScene(matchInfos.token, {isObserver:true}).then(function (scene) {
+	client.getScene(matchInfos.Token, {isObserver:true}).then(function (scene) {
         gameScene = scene;
         gameScene.registerRoute("ship.usedSkill", onUsedSkill);
         gameScene.registerRoute("ship.statusChanged", onBoidStatusChanged);
@@ -234,7 +235,7 @@ function syncClock() {
 }
 
 function onBoidAdded(dataArray) {
-    //console.log("onBoidAdded", dataArray)
+    console.log("onBoidAdded", dataArray)
     for (var b = 0; b < dataArray.length; b++) {
         var data = dataArray[b];
         if (data instanceof Array) {
