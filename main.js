@@ -20,9 +20,8 @@ if (urlParams.hasOwnProperty("localhost")) {
 }
 
 if (typeof (accountId) === "undefined") {
-    accountId = urlParams["accountId"] || "d81fc876-6094-3d92-a3d0-86d42d866b96";
-    applicationName = urlParams["applicationName"] || "boids-demo";
-    sceneName = urlParams["sceneName"] || "main-session";
+    accountId = urlParams["accountId"] || "d9590543-56c3-c94a-f7bf-c394b26deb15";
+    applicationName = urlParams["applicationName"] || "boids-test";
 }
 
 var deltaReceiveAvg = new Average();
@@ -62,10 +61,55 @@ window.onload = main;
 
 var config;
 var client;
-var scene;
+var matchMakerScene;
+var gameScene;
+var matchMakerIsRunning = false;
+var currentHandler;
 
 function toggleDebugInfos() {
     $("table.bl").toggle();
+}
+
+function startMatchMaker() {
+    config = Stormancer.Configuration.forAccount(accountId, applicationName);
+    client = new Stormancer.Client(config);
+    var loginPromise;
+    try
+    {
+    	loginPromise = client.authenticator().loginAsViewer();
+    }
+    catch (ex)
+    {
+    	throw ex;
+    }
+
+    if (loginPromise)
+    {
+    	loginPromise.catch(function(error) {
+    		throw "Authenticator failed: " + error;
+    	});
+
+    	loginPromise.then(function(scene) {
+    		matchMakerScene = scene;
+    		matchMakerScene.connect().then(function() {
+    			matchMakerIsRunning = true;
+    			launchMatch();
+    		});
+    	});
+    }
+}
+
+function launchMatch()
+{
+	matchmakerScene.getComponent("rpcService").rpc("match.find", true, function(packet) {
+		var matchInfos = packet.readObject();
+		startGame(matchInfos);
+	});
+
+	/*if (matchMakerIsRunning)
+	{
+		setTimeout(launchMatch, 1);
+	}*/
 }
 
 function main() {
@@ -74,23 +118,30 @@ function main() {
     onResize();
     requestRender();
 
-    console.log("Connecting to app", accountId, applicationName, sceneName);
+    console.log("Connecting to app", accountId, applicationName);
 
-    config = Stormancer.Configuration.forAccount(accountId, applicationName);
-    client = new Stormancer.Client(config);
-    client.getPublicScene(sceneName, {isObserver:true}).then(function (sc) {
-        scene = sc;
-        scene.registerRoute("ship.usedSkill", onUsedSkill);
-        scene.registerRoute("ship.statusChanged", onBoidStatusChanged);
-        scene.registerRoute("ship.add", onBoidAdded);
-        scene.registerRoute("ship.remove", onBoidRemoved);
-        scene.addRoute("ship.pv", onPv);
-        scene.addRoute("position.update", onBoidUpdate);
-        return scene.connect().then(function () {
+    startMatchMaker();
+}
+
+function startGame(matchInfos)
+{
+	client.getScene(matchInfos.token, {isObserver:true}).then(function (scene) {
+        gameScene = scene;
+        gameScene.registerRoute("ship.usedSkill", onUsedSkill);
+        gameScene.registerRoute("ship.statusChanged", onBoidStatusChanged);
+        gameScene.registerRoute("ship.add", onBoidAdded);
+        gameScene.registerRoute("ship.remove", onBoidRemoved);
+        gameScene.addRoute("ship.pv", onPv);
+        gameScene.addRoute("position.update", onBoidUpdate);
+        return gameScene.connect().then(function () {
             console.log("CONNECTED");
             setInterval(syncClock, 1000);
         });
     });
+}
+
+function gameCompleted() {
+
 }
 
 function requestRender() {
@@ -376,7 +427,7 @@ function onBoidUpdate(packet) {
 }
 
 function refreshKillCount() {
-    scene.getComponent("rpcService").rpc("ship.killCount", [], function (packet) {
+    gameScene.getComponent("rpcService").rpc("ship.killCount", [], function (packet) {
         var dataView = new DataView(packet.data.buffer, packet.data.byteOffset);
         killCount = getUint64(dataView, 0, true);
         var timestamp = getUint64(dataView, 8, true);
